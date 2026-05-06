@@ -1,0 +1,49 @@
+{
+  "app": {
+    "title": "RouterClaude",
+    "subtitle": "CCD 模型供应商管理"
+  },
+  "common": {
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "delete": "删除",
+    "enable": "启用",
+    "disable": "禁用",
+    "create": "创建",
+    "update": "更新",
+    "saving": "保存中..."
+  },
+  "provider": {
+    "add": "添加供应商",
+    "new": "新建供应商",
+    "edit": "编辑供应商",
+    "delete_confirm": "确定删除供应商 \"{{name}}\"？",
+    "name": "供应商名称",
+    "name_placeholder": "如 DeepSeek",
+    "api_url": "API 地址",
+    "api_url_placeholder": "https://api.deepseek.com",
+    "api_key": "API Key",
+    "api_key_placeholder": "sk-xxx",
+    "models": "模型列表",
+    "model_name_placeholder": "模型名称 (如 DeepSeek-V4-Flash)",
+    "add_model": "+ 添加模型",
+    "delete_model": "删除模型",
+    "empty": "暂无供应商，点击上方按钮添加",
+    "1m_context": "1M"
+  },
+  "backend": {
+    "checking": "检查中...",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "error": "无法连接后端服务"
+  },
+  "validation": {
+    "name_required": "供应商名称不能为空",
+    "api_url_required": "API 地址不能为空",
+    "api_url_invalid": "API 地址格式无效",
+    "api_key_required": "API Key 不能为空",
+    "model_required": "至少需要一个有效模型"
+  }
+}

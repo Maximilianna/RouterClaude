@@ -1,0 +1,49 @@
+{
+  "app": {
+    "title": "RouterClaude",
+    "subtitle": "CCD Model Provider Manager"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable",
+    "create": "Create",
+    "update": "Update",
+    "saving": "Saving..."
+  },
+  "provider": {
+    "add": "Add Provider",
+    "new": "New Provider",
+    "edit": "Edit Provider",
+    "delete_confirm": "Delete provider \"{{name}}\"?",
+    "name": "Provider Name",
+    "name_placeholder": "e.g. DeepSeek",
+    "api_url": "API URL",
+    "api_url_placeholder": "https://api.deepseek.com",
+    "api_key": "API Key",
+    "api_key_placeholder": "sk-xxx",
+    "models": "Models",
+    "model_name_placeholder": "Model name (e.g. DeepSeek-V4-Flash)",
+    "add_model": "+ Add Model",
+    "delete_model": "Delete model",
+    "empty": "No providers yet. Click the button above to add one.",
+    "1m_context": "1M"
+  },
+  "backend": {
+    "checking": "Checking...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "error": "Cannot connect to backend"
+  },
+  "validation": {
+    "name_required": "Provider name is required",
+    "api_url_required": "API URL is required",
+    "api_url_invalid": "Invalid API URL format",
+    "api_key_required": "API Key is required",
+    "model_required": "At least one valid model is required"
+  }
+}

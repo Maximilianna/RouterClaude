@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nickola/tauri/v2/crates/tauri-config-schema/schema.json",
+  "productName": "RouterClaude",
+  "version": "1.0.0",
+  "identifier": "com.routerclaude.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "RouterClaude",
+        "width": 900,
+        "height": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "../backend/target/routerclaude-backend-1.0.0.jar"
+    ],
+    "windows": {
+      "wix": null
+    }
+  }
+}

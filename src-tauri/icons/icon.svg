@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF7A00"/>
+      <stop offset="100%" stop-color="#FF5500"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="88" fill="url(#bg)"/>
+
+  <!-- === 阴刻高光（右下偏移，雕刻切边受光面） === -->
+  <g stroke="rgba(255,255,255,0.3)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(3, 3)">
+    <line x1="24" y1="200" x2="144" y2="200"/>
+    <polygon points="200,136 256,168 256,232 200,264 144,232 144,168"/>
+    <line x1="256" y1="200" x2="324" y2="200"/>
+  </g>
+  <polygon points="324,168 368,200 324,232" fill="rgba(255,255,255,0.3)" stroke-linejoin="round"
+           transform="translate(3, 3)"/>
+
+  <!-- === 阴刻暗面（左上偏移，雕刻凹陷阴影） === -->
+  <g stroke="rgba(0,0,0,0.15)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(-2, -2)">
+    <line x1="24" y1="200" x2="144" y2="200"/>
+    <polygon points="200,136 256,168 256,232 200,264 144,232 144,168"/>
+    <line x1="256" y1="200" x2="324" y2="200"/>
+  </g>
+  <polygon points="324,168 368,200 324,232" fill="rgba(0,0,0,0.15)" stroke-linejoin="round"
+           transform="translate(-2, -2)"/>
+
+  <!-- === 阴刻主体（雕刻凹槽） === -->
+  <g stroke="#7C2D12" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="24" y1="200" x2="144" y2="200"/>
+    <polygon points="200,136 256,168 256,232 200,264 144,232 144,168"/>
+    <line x1="256" y1="200" x2="324" y2="200"/>
+  </g>
+  <polygon points="324,168 368,200 324,232" fill="#7C2D12" stroke-linejoin="round"/>
+</svg>

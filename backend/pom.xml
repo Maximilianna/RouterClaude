@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.routerclaude</groupId>
+    <artifactId>routerclaude-backend</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>RouterClaude Backend</name>
+    <description>RouterClaude Java backend - Spring Boot proxy server</description>
+
+    <properties>
+        <java.version>25</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>jlink</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jlink-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jre</outputDirectory>
+                            <noManPages>true</noManPages>
+                            <noHeaderFiles>true</noHeaderFiles>
+                            <stripDebug>true</stripDebug>
+                            <compress>2</compress>
+                            <launcher>true</launcher>
+                            <addModules>
+                                <addModule>java.base</addModule>
+                                <addModule>java.logging</addModule>
+                                <addModule>java.xml</addModule>
+                                <addModule>java.sql</addModule>
+                                <addModule>java.naming</addModule>
+                                <addModule>java.management</addModule>
+                                <addModule>java.security.jgss</addModule>
+                                <addModule>java.instrument</addModule>
+                                <addModule>jdk.unsupported</addModule>
+                            </addModules>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+target/
+*.jar
+*.class
+.settings/
+.vscode/
+.idea/
+*.iml
+.DS_Store
+.env
+src-tauri/target/
+*.bak
+src-tauri/gen/
+docs/
