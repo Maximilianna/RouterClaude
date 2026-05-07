@@ -53,9 +53,14 @@ public class ProviderConfigIO {
         MetaConfig metaConfig = new MetaConfig();
         CcdMeta meta = metaConfig.read();
 
-        // Build id→name lookup from entries
-        Map<String, String> nameMap = meta.getEntries().stream()
-                .collect(Collectors.toMap(CcdMetaEntry::getId, CcdMetaEntry::getName));
+        // Build id→name lookup and id→order index from entries
+        Map<String, String> nameMap = new HashMap<>();
+        Map<String, Integer> orderMap = new HashMap<>();
+        for (int i = 0; i < meta.getEntries().size(); i++) {
+            CcdMetaEntry entry = meta.getEntries().get(i);
+            nameMap.put(entry.getId(), entry.getName());
+            orderMap.put(entry.getId(), i);
+        }
 
         Path dir = CcdConfigDir.getPath();
         if (!Files.isDirectory(dir)) {
@@ -74,6 +79,11 @@ public class ProviderConfigIO {
                 providers.add(provider);
             }
         }
+
+        // Sort by the order stored in _meta.json entries
+        providers.sort(Comparator.comparingInt(p ->
+                orderMap.getOrDefault(p.getId(), Integer.MAX_VALUE)));
+
         return providers;
     }
 

@@ -14,6 +14,10 @@
     "dev:full": "pnpm backend:build && pnpm tauri dev"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^7.0.2",
+    "@dnd-kit/utilities": "^3.2.2",
     "@tanstack/react-query": "^5.100.9",
     "@tauri-apps/api": "^2.0.0",
     "i18next": "^26.0.9",

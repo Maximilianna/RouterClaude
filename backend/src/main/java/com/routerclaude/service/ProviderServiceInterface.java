@@ -14,4 +14,6 @@ public interface ProviderServiceInterface {
     void deleteProvider(String id) throws IOException;
     void toggleProvider(String id, boolean enabled) throws IOException;
     Provider getActiveProvider() throws IOException;
+    ProviderService.TestResult testConnection(String id) throws IOException;
+    void reorderProviders(List<String> ids) throws IOException;
 }

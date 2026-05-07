@@ -2,6 +2,7 @@ package com.routerclaude.controller;
 
 import com.routerclaude.model.Provider;
 import com.routerclaude.model.ProviderConfig;
+import com.routerclaude.service.ProviderService;
 import com.routerclaude.service.ProviderServiceInterface;
 
 import org.springframework.http.HttpStatus;
@@ -71,5 +72,21 @@ public class ProviderController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.ok(active);
+    }
+
+    @PostMapping("/{id}/test")
+    public ResponseEntity<ProviderService.TestResult> testConnection(@PathVariable String id) throws IOException {
+        try {
+            ProviderService.TestResult result = providerService.testConnection(id);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.ok(new ProviderService.TestResult(false, e.getMessage(), -1));
+        }
+    }
+
+    @PostMapping("/reorder")
+    public ResponseEntity<Void> reorderProviders(@RequestBody List<String> ids) throws IOException {
+        providerService.reorderProviders(ids);
+        return ResponseEntity.ok().build();
     }
 }

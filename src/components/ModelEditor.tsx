@@ -26,33 +26,36 @@ export default function ModelEditor({ models, onChange }: Props) {
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
         {t("provider.models")}
       </label>
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {models.map((model, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-2.5 group/model">
             <input
-              className="flex-1 border rounded px-2 py-1 text-sm"
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none"
               placeholder={t("provider.model_name_placeholder")}
               value={model.name}
               onChange={(e) => update(i, "name", e.target.value)}
             />
-            <label className="flex items-center gap-1 text-sm whitespace-nowrap">
+            <label className="flex items-center gap-1.5 text-sm text-gray-500 whitespace-nowrap cursor-pointer">
               <input
                 type="checkbox"
                 checked={model.supports1m}
                 onChange={(e) => update(i, "supports1m", e.target.checked)}
+                className="w-4 h-4 rounded border-gray-200 text-blue-600 focus:ring-blue-200 transition-colors"
               />
-              {t("provider.1m_context")}
+              <span>{t("provider.1m_context")}</span>
             </label>
             <button
               type="button"
               onClick={() => remove(i)}
-              className="text-red-500 hover:text-red-700 text-lg leading-none"
+              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/model:opacity-100 transition-all duration-200"
               title={t("provider.delete_model")}
             >
-              &times;
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
             </button>
           </div>
         ))}
@@ -60,8 +63,11 @@ export default function ModelEditor({ models, onChange }: Props) {
       <button
         type="button"
         onClick={add}
-        className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
       >
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+        </svg>
         {t("provider.add_model")}
       </button>
     </div>

@@ -11,7 +11,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error || "请求失败");
+    throw new Error(body.error || "REQUEST_FAILED");
   }
   const text = await res.text();
   if (!text) return undefined as unknown as T;
@@ -87,6 +87,33 @@ export function useToggleProvider() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });
       qc.invalidateQueries({ queryKey: ["providers", "active"] });
+    },
+  });
+}
+
+export interface TestResult {
+  success: boolean;
+  message: string;
+  latencyMs: number;
+}
+
+export function useTestConnection() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      request<TestResult>(`${API}/${id}/test`, { method: "POST" }),
+  });
+}
+
+export function useReorderProviders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      request<undefined>(`${API}/reorder`, {
+        method: "POST",
+        body: JSON.stringify(ids),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["providers"] });
     },
   });
 }

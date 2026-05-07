@@ -7,6 +7,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::Manager;
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -16,6 +18,7 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const BACKEND_PORT: u16 = 8900;
 
+#[allow(dead_code)]
 struct BackendProcess(Mutex<Option<Child>>);
 
 /// Resolve the path to the backend JAR.
@@ -138,6 +141,58 @@ fn start_backend(app: &tauri::AppHandle) -> Option<Child> {
     Some(child)
 }
 
+/// Kill process occupying the specified port (Windows)
+#[cfg(target_os = "windows")]
+fn kill_process_on_port(port: u16) {
+    use std::process::Command;
+
+    // Find process using the port
+    let output = Command::new("netstat")
+        .args(["-ano"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.contains(&format!(":{}", port)) && line.contains("LISTENING") {
+                // Extract PID (last column)
+                if let Some(pid_str) = line.split_whitespace().last() {
+                    if let Ok(pid) = pid_str.parse::<u32>() {
+                        eprintln!("Killing backend process on port {} (PID: {})", port, pid);
+                        let _ = Command::new("taskkill")
+                            .args(["/F", "/PID", &pid.to_string()])
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .output();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Kill process occupying the specified port (Unix)
+#[cfg(not(target_os = "windows"))]
+fn kill_process_on_port(port: u16) {
+    use std::process::Command;
+
+    let output = Command::new("lsof")
+        .args(["-ti", &format!(":{}", port)])
+        .output();
+
+    if let Ok(output) = output {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for pid_str in stdout.trim().lines() {
+            if let Ok(pid) = pid_str.parse::<u32>() {
+                eprintln!("Killing backend process on port {} (PID: {})", port, pid);
+                let _ = Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .output();
+            }
+        }
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -151,21 +206,56 @@ fn main() {
                 }
             }
 
+            // 创建系统托盘菜单
+            let open_item = MenuItemBuilder::with_id("open", "打开应用").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "退出应用").build(app)?;
+            let menu = MenuBuilder::new(app)
+                .item(&open_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            // 创建系统托盘图标
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(move |app, event| {
+                    match event.id().as_ref() {
+                        "open" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        "quit" => {
+                            // 关闭后端服务
+                            eprintln!("Shutting down backend on port {}...", BACKEND_PORT);
+                            kill_process_on_port(BACKEND_PORT);
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             let backend = start_backend(app.handle());
             app.manage(BackendProcess(Mutex::new(backend)));
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if let Some(state) = window.try_state::<BackendProcess>() {
-                    if let Ok(mut guard) = state.0.lock() {
-                        if let Some(ref mut child) = *guard {
-                            eprintln!("Shutting down backend...");
-                            let _ = child.kill();
-                            let _ = child.wait();
-                        }
-                    }
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // 阻止默认关闭行为，改为隐藏窗口
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .run(tauri::generate_context!())

@@ -10,10 +10,22 @@
     "edit": "Edit",
     "delete": "Delete",
     "enable": "Enable",
+    "enabled": "Enabled",
     "disable": "Disable",
+    "disabled": "Disabled",
     "create": "Create",
     "update": "Update",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "test": "Test",
+    "testing": "Testing...",
+    "test_success": "Connection successful",
+    "test_failed": "Connection failed",
+    "test_success_msg": "Connection successful",
+    "test_failed_http": "Connection failed: HTTP {{code}}",
+    "test_interrupted": "Test interrupted",
+    "test_server_unreachable": "Cannot reach server",
+    "test_timeout": "Connection timed out",
+    "test_error": "Connection failed: {{detail}}"
   },
   "provider": {
     "add": "Add Provider",
@@ -45,5 +57,11 @@
     "api_url_invalid": "Invalid API URL format",
     "api_key_required": "API Key is required",
     "model_required": "At least one valid model is required"
+  },
+  "error": {
+    "name_taken": "Provider name already exists",
+    "provider_not_found": "Provider not found",
+    "io_error": "Failed to read/write config file",
+    "request_failed": "Request failed"
   }
 }

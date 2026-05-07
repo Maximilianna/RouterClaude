@@ -16,7 +16,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleServiceException(ServiceException e) {
         HttpStatus status;
         switch (e.getMessage()) {
-            case "供应商不存在":
+            case "PROVIDER_NOT_FOUND":
                 status = HttpStatus.NOT_FOUND;
                 break;
             default:
@@ -28,6 +28,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Map<String, String>> handleIOException(IOException e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "配置文件读写失败"));
+                .body(Map.of("error", "IO_ERROR"));
     }
 }

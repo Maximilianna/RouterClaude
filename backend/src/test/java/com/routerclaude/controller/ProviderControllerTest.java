@@ -71,7 +71,7 @@ class ProviderControllerTest {
 
         mockMvc.perform(post("/api/providers").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("供应商名称已存在"));
+                .andExpect(jsonPath("$.error").value("NAME_TAKEN"));
     }
 
     @Test
@@ -106,7 +106,7 @@ class ProviderControllerTest {
                                 {"name":"X","apiUrl":"https://x.com","apiKey":"sk","models":[{"name":"m","supports1m":true}]}
                                 """))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("供应商不存在"));
+                .andExpect(jsonPath("$.error").value("PROVIDER_NOT_FOUND"));
     }
 
     @Test
@@ -124,7 +124,7 @@ class ProviderControllerTest {
     void deleteNonexistentReturns404() throws Exception {
         mockMvc.perform(delete("/api/providers/bad-id"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("供应商不存在"));
+                .andExpect(jsonPath("$.error").value("PROVIDER_NOT_FOUND"));
     }
 
     @Test

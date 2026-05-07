@@ -10,10 +10,22 @@
     "edit": "编辑",
     "delete": "删除",
     "enable": "启用",
+    "enabled": "已启用",
     "disable": "禁用",
+    "disabled": "已禁用",
     "create": "创建",
     "update": "更新",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "test": "测试",
+    "testing": "测试中...",
+    "test_success": "连接成功",
+    "test_failed": "连接失败",
+    "test_success_msg": "连接成功",
+    "test_failed_http": "连接失败: HTTP {{code}}",
+    "test_interrupted": "连接测试被中断",
+    "test_server_unreachable": "无法连接到服务器",
+    "test_timeout": "连接超时",
+    "test_error": "连接失败: {{detail}}"
   },
   "provider": {
     "add": "添加供应商",
@@ -45,5 +57,11 @@
     "api_url_invalid": "API 地址格式无效",
     "api_key_required": "API Key 不能为空",
     "model_required": "至少需要一个有效模型"
+  },
+  "error": {
+    "name_taken": "供应商名称已存在",
+    "provider_not_found": "供应商不存在",
+    "io_error": "配置文件读写失败",
+    "request_failed": "请求失败"
   }
 }

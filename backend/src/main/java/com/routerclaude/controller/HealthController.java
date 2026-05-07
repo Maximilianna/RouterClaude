@@ -14,4 +14,13 @@ public class HealthController {
     public Map<String, Object> health() {
         return Map.of("status", "ok", "timestamp", System.currentTimeMillis());
     }
+
+    @GetMapping("/shutdown")
+    public Map<String, String> shutdown() {
+        new Thread(() -> {
+            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+            System.exit(0);
+        }).start();
+        return Map.of("status", "shutting down");
+    }
 }
