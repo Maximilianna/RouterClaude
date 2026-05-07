@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nickola/tauri/v2/crates/tauri-config-schema/schema.json",
   "productName": "RouterClaude",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "identifier": "com.routerclaude.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -35,7 +35,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../backend/target/routerclaude-backend-1.0.0.jar"
+      "../backend/target/routerclaude-backend-1.1.0.jar"
     ],
     "windows": {
       "wix": null

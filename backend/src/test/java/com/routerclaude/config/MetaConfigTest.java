@@ -20,12 +20,14 @@ class MetaConfigTest {
 
     @BeforeEach
     void setUp() {
+        System.setProperty("routerclaude.config.dir", tempDir.toString());
         System.setProperty("ccd.config.dir", tempDir.toString());
         metaConfig = new MetaConfig();
     }
 
     @AfterEach
     void tearDown() {
+        System.clearProperty("routerclaude.config.dir");
         System.clearProperty("ccd.config.dir");
     }
 

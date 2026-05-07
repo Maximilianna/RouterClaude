@@ -22,12 +22,14 @@ class ProviderConfigIOTest {
 
     @BeforeEach
     void setUp() {
+        System.setProperty("routerclaude.config.dir", tempDir.toString());
         System.setProperty("ccd.config.dir", tempDir.toString());
         providerConfigIO = new ProviderConfigIO();
     }
 
     @AfterEach
     void tearDown() {
+        System.clearProperty("routerclaude.config.dir");
         System.clearProperty("ccd.config.dir");
     }
 
@@ -160,7 +162,9 @@ class ProviderConfigIOTest {
         metaConfig.upsertEntry("test-uuid", "ExistingProvider");
 
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.writeValue(tempDir.resolve("test-uuid.json").toFile(), ccdConfig);
+        Path ccdDir = tempDir.resolve("ccd");
+        ccdDir.toFile().mkdirs();
+        mapper.writeValue(ccdDir.resolve("test-uuid.json").toFile(), ccdConfig);
 
         Provider loaded = providerConfigIO.getById("test-uuid");
         assertNotNull(loaded);

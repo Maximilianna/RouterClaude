@@ -44,31 +44,21 @@ RouterClaude 就是为了解决这个错位而生：
 <tr>
   <td width="50%">
     <h4>📦 供应商管理</h4>
-    可视化添加、编辑、删除、启用/禁用模型供应商
+    可视化添加、编辑、删除、启用/禁用、拖拽排序模型供应商，内置主流预设模板
   </td>
-  <td width="50%">
-    <h4>⚡ 一键配置 CCD</h4>
-    直接读写本地 CCD 配置文件（<code>_meta.json</code> / <code>{uuid}.json</code>）
-  </td>
-</tr>
-<tr>
   <td width="50%">
     <h4>🔄 模型名称转发</h4>
-    内置代理（<code>:8901</code>）自动去除 <code>claude-</code> 前缀并转发到真实 API
-  </td>
-  <td width="50%">
-    <h4>📡 流式响应支持</h4>
-    SSE 流式响应实时透传，零延迟体验
+    内置代理（<code>:8901</code>）自动去除 <code>claude-</code> 前缀，SSE 流式响应实时透传
   </td>
 </tr>
 <tr>
   <td width="50%">
-    <h4>🌐 中英文界面</h4>
-    根据浏览器语言自动切换，支持手动选择
+    <h4>📊 代理日志 & Token 统计</h4>
+    实时查看请求日志，按日/周/月统计 Token 消耗，数据持久化存储
   </td>
   <td width="50%">
     <h4>🔒 完全本地运行</h4>
-    无云端依赖，所有操作在用户机器上完成
+    无云端依赖，中英文界面，支持自动更新检查
   </td>
 </tr>
 </table>
@@ -78,7 +68,6 @@ RouterClaude 就是为了解决这个错位而生：
 ## 架构
 
 ```
-                        
     ┌───────────────────────────────────────────────────┐
     │                  Tauri 桌面壳                      │
     │   ┌──────────────────┐      ┌──────────────────┐  │
@@ -100,6 +89,18 @@ RouterClaude 就是为了解决这个错位而生：
    CCD ─── POST /v1/messages ───► 代理 :8901 ─── 去除前缀 ───► 供应商 API
 ```
 
+### 配置目录结构
+
+```
+~/.routerclaude/
+├── ccd/                  # CCD 配置文件（同步写入 CCD 目录）
+│   ├── _meta.json        # 供应商注册表 + 激活状态
+│   └── {uuid}.json       # 单个供应商配置
+└── data/                 # 应用数据（持久化）
+    ├── logs.json         # 代理请求日志（最近 500 条）
+    └── usage.json        # Token 用量记录（最近 10000 条）
+```
+
 <details>
 <summary><b>技术栈</b></summary>
 <br>
@@ -109,9 +110,10 @@ RouterClaude 就是为了解决这个错位而生：
 | 前端 | React 18, TypeScript 5, Vite 6, Tailwind CSS 3 |
 | 桌面壳 | Tauri 2 |
 | 后端 | Java 25, Spring Boot 3.4 |
-| 数据库 | 无（基于文件系统的 JSON 配置） |
+| 数据库 | 无（基于文件系统的 JSON 配置 + 环形缓冲区持久化） |
 | 国际化 | i18next + react-i18next |
 | 状态管理 | TanStack React Query |
+| 拖拽排序 | @dnd-kit |
 | 构建工具 | pnpm（前端）, Maven（后端） |
 
 </details>
@@ -182,8 +184,9 @@ cd .. && pnpm tauri build
 
 1. 启动 RouterClaude
 2. 点击 **+ 添加供应商**
-3. 填写供应商信息：名称（如 `DeepSeek`）、API 地址、API Key、模型列表
-4. 点击 **创建**
+3. 选择预设模板（如 DeepSeek）或选择自定义
+4. 填写 API Key，可点击 **自动发现** 拉取模型列表
+5. 点击 **创建**
 
 ### 启用供应商
 
@@ -196,6 +199,14 @@ cd .. && pnpm tauri build
 1. 在 CCD 中将推理网关地址设为 `http://127.0.0.1:8901`
 2. 选择以 `claude-` 开头的模型（如 `claude-DeepSeek-V4-Flash`）
 3. CCD 发送请求到本地代理，代理自动去除前缀并转发到真实供应商 API
+
+### 查看日志和用量
+
+切换到 **日志** 标签页查看代理请求记录，切换到 **用量** 标签页查看 Token 消耗统计。数据在应用重启后自动恢复。
+
+### 检查更新
+
+切换到 **关于** 标签页，点击 **检查更新** 按钮。如有新版本，弹窗提示是否下载安装。
 
 ### 端口说明
 
@@ -219,6 +230,9 @@ cd .. && pnpm tauri build
 | `DELETE` | `/api/providers/{id}` | 删除供应商 |
 | `PATCH` | `/api/providers/{id}/toggle` | 切换启用状态 |
 | `GET` | `/api/providers/active` | 获取当前启用供应商 |
+| `POST` | `/api/providers/{id}/test` | 测试供应商连接 |
+| `POST` | `/api/providers/reorder` | 保存供应商排序 |
+| `POST` | `/api/providers/discover` | 自动发现模型 |
 
 ### 代理 API（`:8901`）
 
@@ -228,6 +242,26 @@ cd .. && pnpm tauri build
 | `POST` | `/v1/complete` | 转发 Claude Completions API 请求 |
 | `GET` | `/v1/models` | 获取当前启用供应商的模型列表 |
 
+### 代理状态 API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/proxy/status` | 代理运行状态 |
+| `GET` | `/api/proxy/logs?limit=100` | 代理请求日志 |
+
+### 用量统计 API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/usage/summary?period=today` | Token 用量汇总（today/week/month） |
+| `GET` | `/api/usage/details?limit=50` | 最近调用明细 |
+
+### 更新检查 API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/update/check?currentVersion=1.0.1` | 检查 GitHub Releases 最新版本 |
+
 ---
 
 ## 项目结构
@@ -236,20 +270,58 @@ cd .. && pnpm tauri build
 router-claude/
 ├── src/                          # React 前端
 │   ├── components/               # UI 组件
-│   ├── hooks/                    # TanStack Query CRUD Hooks
+│   │   ├── ProviderCard.tsx      # 供应商卡片（拖拽排序、标签、测试）
+│   │   ├── ProviderForm.tsx      # 供应商表单（预设、API模式、自动发现）
+│   │   ├── ModelEditor.tsx       # 模型列表编辑器
+│   │   ├── LogPanel.tsx          # 代理日志面板
+│   │   ├── UsagePanel.tsx        # Token 用量统计
+│   │   ├── AboutPanel.tsx        # 关于页面（版本信息、更新检查）
+│   │   └── Toast.tsx             # Toast 弹窗组件
+│   ├── hooks/                    # TanStack Query Hooks
+│   ├── data/                     # 预设供应商数据
+│   ├── utils/                    # 工具函数（错误码翻译）
 │   ├── i18n/                     # 中英文语言包
 │   └── types/                    # TypeScript 类型定义
 ├── src-tauri/                    # Tauri 桌面壳
-│   └── src/main.rs               # 入口文件，管理 Java sidecar 生命周期
+│   ├── src/main.rs               # 入口，管理 Java sidecar 生命周期
+│   └── capabilities/             # Tauri 权限配置
 ├── backend/                      # Java Spring Boot 后端
 │   └── src/main/java/com/routerclaude/
 │       ├── controller/           # REST API 控制器
 │       ├── service/              # 业务逻辑层
-│       ├── config/               # CCD 配置文件读写
-│       ├── proxy/                # 模型转发代理服务器
+│       ├── config/               # 配置文件读写 + 数据持久化
+│       ├── proxy/                # 模型转发代理服务器 + 日志
 │       └── model/                # 数据模型
 └── docs/                         # 开发文档
 ```
+
+---
+
+## 更新日志
+
+### v1.1.0
+
+- **预设模板**：内置 DeepSeek、Mimo、GLM、Kimi、MiniMax 等供应商预设，一键创建
+- **API 模式切换**：支持 OpenAI / Anthropic 兼容模式，切换时自动填充 URL
+- **模型自动发现**：从供应商 API 自动拉取可用模型列表
+- **代理日志面板**：实时查看代理请求日志，数据持久化到 `~/.routerclaude/data/logs.json`
+- **Token 用量统计**：按日/周/月统计 Token 消耗，SSE 流式响应中自动提取 usage 数据，持久化到 `~/.routerclaude/data/usage.json`
+- **供应商标签**：为供应商添加自定义标签
+- **连接测试增强**：批量测试所有供应商，Toast 弹窗显示结果
+- **配置目录重构**：CCD 配置文件迁移至 `~/.routerclaude/ccd/`，应用数据存放在 `~/.routerclaude/data/`，为未来支持更多客户端做准备
+- **关于页面**：查看版本信息，从 GitHub Releases 检查更新，一键下载安装
+- **API Key 可见性切换**：输入框内置眼睛图标按钮，切换显示/隐藏 API Key
+- **用量页刷新按钮**：手动刷新 Token 用量数据
+
+### v1.0.1
+
+- **拖拽排序供应商**：使用 @dnd-kit 替换原生拖拽，仅抓手图标触发动画流畅，支持垂直轴约束和父容器边界限制
+- **修复排序持久化**：`listAll()` 现在按 `_meta.json` 中 `entries` 顺序返回供应商，解决启用/禁用后排序丢失的问题
+- **后端错误信息国际化**：后端错误消息改为错误码，前端通过 i18n 翻译显示，英文模式下不再出现中文提示
+
+### v1.0.0
+
+- 初始发布
 
 ---
 
@@ -262,4 +334,3 @@ router-claude/
   <br>
   <sub>MIT License © 2026</sub>
 </p>
-

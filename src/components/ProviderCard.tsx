@@ -24,7 +24,6 @@ export default function ProviderCard({
 }: Props) {
   const { t } = useTranslation();
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const {
     attributes,
@@ -34,16 +33,6 @@ export default function ProviderCard({
     transition,
     isDragging,
   } = useSortable({ id: provider.id });
-
-  function translateMessage(msg: string): string {
-    if (msg === "SUCCESS") return t("common.test_success_msg");
-    if (msg.startsWith("FAILED_HTTP:")) return t("common.test_failed_http", { code: msg.slice(12) });
-    if (msg === "INTERRUPTED") return t("common.test_interrupted");
-    if (msg === "SERVER_UNREACHABLE") return t("common.test_server_unreachable");
-    if (msg === "TIMEOUT") return t("common.test_timeout");
-    if (msg.startsWith("ERROR:")) return t("common.test_error", { detail: msg.slice(6) });
-    return msg;
-  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -55,18 +44,8 @@ export default function ProviderCard({
 
   async function handleTest() {
     setTesting(true);
-    setTestResult(null);
     try {
-      const result = await onTest();
-      setTestResult(result);
-      setTimeout(() => setTestResult(null), 8000);
-    } catch (err) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : t("common.test_failed"),
-        latencyMs: -1,
-      });
-      setTimeout(() => setTestResult(null), 8000);
+      await onTest();
     } finally {
       setTesting(false);
     }
@@ -101,6 +80,11 @@ export default function ProviderCard({
             }`}
           />
           <h3 className="font-semibold text-gray-900">{provider.name}</h3>
+          {provider.apiMode && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-500">
+              {provider.apiMode}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button
@@ -146,33 +130,16 @@ export default function ProviderCard({
         </div>
       </div>
       <p className="text-xs text-gray-400 truncate mb-3 font-mono">{provider.apiUrl}</p>
-      {testResult && (
-        <div
-          className={`mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${
-            !testResult.success
-              ? "bg-red-50 text-red-600 border border-red-100"
-              : testResult.latencyMs > 2000
-                ? "bg-red-50 text-red-600 border border-red-100"
-                : "bg-green-50 text-green-700 border border-green-100"
-          }`}
-        >
-          {testResult.success ? (
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          ) : (
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          )}
-          <span>{translateMessage(testResult.message)}</span>
-          {testResult.success && testResult.latencyMs >= 0 && (
-            <span className={`ml-auto font-mono text-xs ${
-              testResult.latencyMs > 2000 ? "text-red-500" : "text-green-600"
-            }`}>
-              {testResult.latencyMs}ms
+      {provider.tags && provider.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {provider.tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center px-2.5 py-0.5 bg-blue-50 text-blue-600 text-[11px] rounded-full border border-blue-100"
+            >
+              {tag}
             </span>
-          )}
+          ))}
         </div>
       )}
       {provider.models.length > 0 && (

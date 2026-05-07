@@ -22,12 +22,14 @@ class ProviderServiceTest {
 
     @BeforeEach
     void setUp() {
+        System.setProperty("routerclaude.config.dir", tempDir.toString());
         System.setProperty("ccd.config.dir", tempDir.toString());
         providerService = new ProviderService();
     }
 
     @AfterEach
     void tearDown() {
+        System.clearProperty("routerclaude.config.dir");
         System.clearProperty("ccd.config.dir");
     }
 

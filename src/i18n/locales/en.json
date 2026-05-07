@@ -3,10 +3,17 @@
     "title": "RouterClaude",
     "subtitle": "CCD Model Provider Manager"
   },
+  "nav": {
+    "providers": "Providers",
+    "logs": "Logs",
+    "usage": "Usage",
+    "about": "About"
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
+    "add": "Add",
     "edit": "Edit",
     "delete": "Delete",
     "enable": "Enable",
@@ -18,6 +25,7 @@
     "saving": "Saving...",
     "test": "Test",
     "testing": "Testing...",
+    "test_all": "Test All",
     "test_success": "Connection successful",
     "test_failed": "Connection failed",
     "test_success_msg": "Connection successful",
@@ -25,15 +33,20 @@
     "test_interrupted": "Test interrupted",
     "test_server_unreachable": "Cannot reach server",
     "test_timeout": "Connection timed out",
-    "test_error": "Connection failed: {{detail}}"
+    "test_error": "Connection failed: {{detail}}",
+    "refresh": "Refresh",
+    "all": "All"
   },
   "provider": {
     "add": "Add Provider",
     "new": "New Provider",
     "edit": "Edit Provider",
     "delete_confirm": "Delete provider \"{{name}}\"?",
+    "preset": "Create from Preset",
+    "custom": "Custom",
     "name": "Provider Name",
     "name_placeholder": "e.g. DeepSeek",
+    "api_mode": "API Mode",
     "api_url": "API URL",
     "api_url_placeholder": "https://api.deepseek.com",
     "api_key": "API Key",
@@ -42,8 +55,43 @@
     "model_name_placeholder": "Model name (e.g. DeepSeek-V4-Flash)",
     "add_model": "+ Add Model",
     "delete_model": "Delete model",
+    "discover": "Auto Discover",
+    "discovering": "Discovering...",
+    "tags": "Tags",
+    "add_tag": "Add tag",
     "empty": "No providers yet. Click the button above to add one.",
     "1m_context": "1M"
+  },
+  "proxy": {
+    "running": "Proxy Running",
+    "stopped": "Proxy Stopped",
+    "total_requests": "Total Requests",
+    "error_rate": "Error Rate",
+    "time": "Time",
+    "model": "Model",
+    "provider": "Provider",
+    "status": "Status",
+    "latency": "Latency",
+    "no_logs": "No logs yet",
+    "no_logs_hint": "Proxy is running. Logs will appear here when CCD sends requests."
+  },
+  "usage": {
+    "today": "Today",
+    "week": "This Week",
+    "month": "This Month",
+    "total_tokens": "Total Tokens",
+    "prompt_tokens": "Prompt Tokens",
+    "completion_tokens": "Completion Tokens",
+    "by_provider": "By Provider",
+    "by_model": "By Model",
+    "recent_details": "Recent Call Details",
+    "time": "Time",
+    "provider": "Provider",
+    "model": "Model",
+    "prompt": "Prompt",
+    "completion": "Completion",
+    "total": "Total",
+    "no_data_hint": "No usage data yet. Token stats will appear here when CCD sends requests through the proxy."
   },
   "backend": {
     "checking": "Checking...",
@@ -62,6 +110,20 @@
     "name_taken": "Provider name already exists",
     "provider_not_found": "Provider not found",
     "io_error": "Failed to read/write config file",
-    "request_failed": "Request failed"
+    "request_failed": "Request failed",
+    "discover_failed": "Model discovery failed",
+    "discover_invalid_response": "Invalid response from model discovery",
+    "discover_not_supported": "This provider does not support model discovery"
+  },
+  "about": {
+    "current_version": "Current Version",
+    "check_update": "Check for Updates",
+    "checking": "Checking...",
+    "up_to_date": "Up to date",
+    "update_title": "Update Available",
+    "update_available": "A new version is available",
+    "release_notes": "Release Notes",
+    "confirm": "Update Now",
+    "later": "Later"
   }
 }

@@ -8,6 +8,7 @@ import com.routerclaude.model.ccd.CcdMetaEntry;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Reads and writes CCD's _meta.json file.
@@ -25,27 +26,44 @@ public class MetaConfig {
     }
 
     public Path getMetaFilePath() {
-        return CcdConfigDir.getPath().resolve(FILE_NAME);
+        return CcdConfigDir.getCcdConfigPath().resolve(FILE_NAME);
+    }
+
+    private Path getCcdMetaFilePath() {
+        return CcdConfigDir.getCcdPath().resolve(FILE_NAME);
     }
 
     /**
      * Reads _meta.json and returns the parsed CcdMeta.
-     * Returns an empty CcdMeta if the file does not exist.
+     * Reads from primary dir first, falls back to CCD dir for migration.
+     * Returns an empty CcdMeta if neither exists.
      */
     public CcdMeta read() throws IOException {
         File file = getMetaFilePath().toFile();
-        if (!file.exists()) {
-            return new CcdMeta();
+        if (file.exists()) {
+            return mapper.readValue(file, CcdMeta.class);
         }
-        return mapper.readValue(file, CcdMeta.class);
+        // Fallback: try reading from CCD dir (first-run migration)
+        File ccdFile = getCcdMetaFilePath().toFile();
+        if (ccdFile.exists()) {
+            CcdMeta meta = mapper.readValue(ccdFile, CcdMeta.class);
+            // Migrate: write to primary dir
+            write(meta);
+            return meta;
+        }
+        return new CcdMeta();
     }
 
     /**
      * Writes the CcdMeta to _meta.json.
-     * Creates parent directories and file if they don't exist.
+     * Writes to both primary dir and CCD dir.
      */
     public void write(CcdMeta meta) throws IOException {
-        File file = getMetaFilePath().toFile();
+        writeToFile(getMetaFilePath().toFile(), meta);
+        writeToFile(getCcdMetaFilePath().toFile(), meta);
+    }
+
+    private void writeToFile(File file, CcdMeta meta) throws IOException {
         File parentDir = file.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
             parentDir.mkdirs();
@@ -71,12 +89,31 @@ public class MetaConfig {
 
     /**
      * Adds or updates an entry in the _meta.json entries list.
+     * Preserves existing tags if the entry already exists.
      */
     public void upsertEntry(String id, String name) throws IOException {
+        upsertEntry(id, name, null);
+    }
+
+    /**
+     * Adds or updates an entry with explicit tags.
+     * If tags is null, preserves existing tags; otherwise uses the provided tags.
+     */
+    public void upsertEntry(String id, String name, List<String> tags) throws IOException {
         CcdMeta meta = read();
-        // Remove existing entry with same id
+        List<String> effectiveTags = tags;
+        if (effectiveTags == null) {
+            // Preserve existing tags
+            effectiveTags = meta.getEntries().stream()
+                    .filter(e -> e.getId().equals(id))
+                    .findFirst()
+                    .map(CcdMetaEntry::getTags)
+                    .orElse(null);
+        }
         meta.getEntries().removeIf(e -> e.getId().equals(id));
-        meta.getEntries().add(new CcdMetaEntry(id, name));
+        CcdMetaEntry entry = new CcdMetaEntry(id, name);
+        entry.setTags(effectiveTags);
+        meta.getEntries().add(entry);
         write(meta);
     }
 

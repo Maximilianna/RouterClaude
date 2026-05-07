@@ -3,10 +3,17 @@
     "title": "RouterClaude",
     "subtitle": "CCD 模型供应商管理"
   },
+  "nav": {
+    "providers": "供应商",
+    "logs": "日志",
+    "usage": "用量",
+    "about": "关于"
+  },
   "common": {
     "loading": "加载中...",
     "save": "保存",
     "cancel": "取消",
+    "add": "添加",
     "edit": "编辑",
     "delete": "删除",
     "enable": "启用",
@@ -18,6 +25,7 @@
     "saving": "保存中...",
     "test": "测试",
     "testing": "测试中...",
+    "test_all": "测试全部",
     "test_success": "连接成功",
     "test_failed": "连接失败",
     "test_success_msg": "连接成功",
@@ -25,15 +33,20 @@
     "test_interrupted": "连接测试被中断",
     "test_server_unreachable": "无法连接到服务器",
     "test_timeout": "连接超时",
-    "test_error": "连接失败: {{detail}}"
+    "test_error": "连接失败: {{detail}}",
+    "refresh": "刷新",
+    "all": "全部"
   },
   "provider": {
     "add": "添加供应商",
     "new": "新建供应商",
     "edit": "编辑供应商",
     "delete_confirm": "确定删除供应商 \"{{name}}\"？",
+    "preset": "从预设创建",
+    "custom": "自定义",
     "name": "供应商名称",
     "name_placeholder": "如 DeepSeek",
+    "api_mode": "API 模式",
     "api_url": "API 地址",
     "api_url_placeholder": "https://api.deepseek.com",
     "api_key": "API Key",
@@ -42,8 +55,43 @@
     "model_name_placeholder": "模型名称 (如 DeepSeek-V4-Flash)",
     "add_model": "+ 添加模型",
     "delete_model": "删除模型",
+    "discover": "自动发现",
+    "discovering": "发现中...",
+    "tags": "标签",
+    "add_tag": "添加标签",
     "empty": "暂无供应商，点击上方按钮添加",
     "1m_context": "1M"
+  },
+  "proxy": {
+    "running": "代理运行中",
+    "stopped": "代理已停止",
+    "total_requests": "总请求数",
+    "error_rate": "错误率",
+    "time": "时间",
+    "model": "模型",
+    "provider": "供应商",
+    "status": "状态",
+    "latency": "延迟",
+    "no_logs": "暂无日志",
+    "no_logs_hint": "代理已运行，当 CCD 发送请求时日志将在此显示"
+  },
+  "usage": {
+    "today": "今日",
+    "week": "本周",
+    "month": "本月",
+    "total_tokens": "总 Token",
+    "prompt_tokens": "输入 Token",
+    "completion_tokens": "输出 Token",
+    "by_provider": "按供应商",
+    "by_model": "按模型",
+    "recent_details": "最近调用明细",
+    "time": "时间",
+    "provider": "供应商",
+    "model": "模型",
+    "prompt": "输入",
+    "completion": "输出",
+    "total": "总计",
+    "no_data_hint": "暂无 Token 使用记录，当 CCD 通过代理发送请求时数据将在此显示"
   },
   "backend": {
     "checking": "检查中...",
@@ -62,6 +110,20 @@
     "name_taken": "供应商名称已存在",
     "provider_not_found": "供应商不存在",
     "io_error": "配置文件读写失败",
-    "request_failed": "请求失败"
+    "request_failed": "请求失败",
+    "discover_failed": "模型发现失败",
+    "discover_invalid_response": "模型发现返回无效数据",
+    "discover_not_supported": "该供应商暂不支持搜索模型"
+  },
+  "about": {
+    "current_version": "当前版本",
+    "check_update": "检查更新",
+    "checking": "检查中...",
+    "up_to_date": "已是最新版本",
+    "update_title": "发现新版本",
+    "update_available": "有新版本可用",
+    "release_notes": "更新日志",
+    "confirm": "立即更新",
+    "later": "稍后"
   }
 }

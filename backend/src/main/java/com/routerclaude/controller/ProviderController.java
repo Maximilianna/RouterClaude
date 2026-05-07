@@ -2,6 +2,7 @@ package com.routerclaude.controller;
 
 import com.routerclaude.model.Provider;
 import com.routerclaude.model.ProviderConfig;
+import com.routerclaude.service.ModelDiscoverService;
 import com.routerclaude.service.ProviderService;
 import com.routerclaude.service.ProviderServiceInterface;
 
@@ -11,20 +12,29 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/providers")
 public class ProviderController {
 
     private final ProviderServiceInterface providerService;
+    private final ModelDiscoverService discoverService;
 
     public ProviderController() {
         this.providerService = new com.routerclaude.service.ProviderService();
+        this.discoverService = new ModelDiscoverService();
     }
 
     // Constructor for dependency injection (testing)
     ProviderController(ProviderServiceInterface providerService) {
         this.providerService = providerService;
+        this.discoverService = new ModelDiscoverService();
+    }
+
+    ProviderController(ProviderServiceInterface providerService, ModelDiscoverService discoverService) {
+        this.providerService = providerService;
+        this.discoverService = discoverService;
     }
 
     @GetMapping
@@ -88,5 +98,18 @@ public class ProviderController {
     public ResponseEntity<Void> reorderProviders(@RequestBody List<String> ids) throws IOException {
         providerService.reorderProviders(ids);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/discover")
+    public ResponseEntity<Map<String, Object>> discoverModels(@RequestBody Map<String, String> body) {
+        try {
+            String apiUrl = body.get("apiUrl");
+            String apiKey = body.get("apiKey");
+            String apiMode = body.get("apiMode");
+            List<String> models = discoverService.discoverModels(apiUrl, apiKey, apiMode);
+            return ResponseEntity.ok(Map.of("models", models));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

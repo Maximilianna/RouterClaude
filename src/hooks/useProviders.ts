@@ -1,8 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Provider, ProviderConfig } from "../types/provider";
+import type {
+  Provider,
+  ProviderConfig,
+  DiscoverResult,
+  ProxyStatus,
+  ProxyLogEntry,
+  UsageSummary,
+  UsageRecord,
+} from "../types/provider";
 import { API_BASE } from "../config";
 
 const API = `${API_BASE}/api/providers`;
+const PROXY_API = `${API_BASE}/api/proxy`;
+const USAGE_API = `${API_BASE}/api/usage`;
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -115,5 +125,68 @@ export function useReorderProviders() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["providers"] });
     },
+  });
+}
+
+export function useDiscoverModels() {
+  return useMutation({
+    mutationFn: (params: { apiUrl: string; apiKey: string; apiMode?: string }) =>
+      request<DiscoverResult>(`${API}/discover`, {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+  });
+}
+
+export function useTestAll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          request<TestResult>(`${API}/${id}/test`, { method: "POST" })
+        )
+      );
+      return ids.map((id, i) => ({
+        id,
+        result:
+          results[i].status === "fulfilled"
+            ? (results[i] as PromiseFulfilledResult<TestResult>).value
+            : { success: false, message: "ERROR", latencyMs: -1 },
+      }));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["providers"] });
+    },
+  });
+}
+
+export function useProxyStatus() {
+  return useQuery<ProxyStatus>({
+    queryKey: ["proxy", "status"],
+    queryFn: () => request<ProxyStatus>(`${PROXY_API}/status`),
+    refetchInterval: 5000,
+  });
+}
+
+export function useProxyLogs(limit = 100) {
+  return useQuery<ProxyLogEntry[]>({
+    queryKey: ["proxy", "logs", limit],
+    queryFn: () => request<ProxyLogEntry[]>(`${PROXY_API}/logs?limit=${limit}`),
+    refetchInterval: 5000,
+  });
+}
+
+export function useUsageSummary(period = "today") {
+  return useQuery<UsageSummary>({
+    queryKey: ["usage", "summary", period],
+    queryFn: () => request<UsageSummary>(`${USAGE_API}/summary?period=${period}`),
+  });
+}
+
+export function useUsageDetails(limit = 50) {
+  return useQuery<UsageRecord[]>({
+    queryKey: ["usage", "details", limit],
+    queryFn: () => request<UsageRecord[]>(`${USAGE_API}/details?limit=${limit}`),
   });
 }

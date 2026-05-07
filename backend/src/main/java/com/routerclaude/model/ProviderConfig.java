@@ -7,6 +7,8 @@ public class ProviderConfig {
     private String apiUrl;
     private String apiKey;
     private List<Model> models;
+    private String apiMode;
+    private List<String> tags;
 
     public ProviderConfig() {}
 
@@ -18,4 +20,8 @@ public class ProviderConfig {
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
     public List<Model> getModels() { return models; }
     public void setModels(List<Model> models) { this.models = models; }
+    public String getApiMode() { return apiMode; }
+    public void setApiMode(String apiMode) { this.apiMode = apiMode; }
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

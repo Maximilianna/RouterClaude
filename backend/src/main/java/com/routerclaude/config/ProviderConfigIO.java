@@ -35,7 +35,11 @@ public class ProviderConfigIO {
     }
 
     private Path getProviderFilePath(String uuid) {
-        return CcdConfigDir.getPath().resolve(uuid + ".json");
+        return CcdConfigDir.getCcdConfigPath().resolve(uuid + ".json");
+    }
+
+    private Path getCcdProviderFilePath(String uuid) {
+        return CcdConfigDir.getCcdPath().resolve(uuid + ".json");
     }
 
     private boolean isValidUuidFile(Path path) {
@@ -46,23 +50,30 @@ public class ProviderConfigIO {
     }
 
     /**
-     * Scans the CCD config directory and returns all providers.
-     * Reads _meta.json for entry metadata and appliedId, then loads each {uuid}.json.
+     * Scans the config directory and returns all providers.
+     * Reads from primary dir, falls back to CCD dir for migration.
      */
     public List<Provider> listAll() throws IOException {
         MetaConfig metaConfig = new MetaConfig();
         CcdMeta meta = metaConfig.read();
 
-        // Build id→name lookup and id→order index from entries
         Map<String, String> nameMap = new HashMap<>();
         Map<String, Integer> orderMap = new HashMap<>();
+        Map<String, List<String>> tagsMap = new HashMap<>();
         for (int i = 0; i < meta.getEntries().size(); i++) {
             CcdMetaEntry entry = meta.getEntries().get(i);
             nameMap.put(entry.getId(), entry.getName());
             orderMap.put(entry.getId(), i);
+            if (entry.getTags() != null) {
+                tagsMap.put(entry.getId(), entry.getTags());
+            }
         }
 
-        Path dir = CcdConfigDir.getPath();
+        // Try primary dir first, fall back to CCD dir
+        Path dir = CcdConfigDir.getCcdConfigPath();
+        if (!Files.isDirectory(dir)) {
+            dir = CcdConfigDir.getCcdPath();
+        }
         if (!Files.isDirectory(dir)) {
             return Collections.emptyList();
         }
@@ -76,15 +87,38 @@ public class ProviderConfigIO {
                 CcdProviderConfig ccdConfig = mapper.readValue(file.toFile(), CcdProviderConfig.class);
                 Provider provider = convertToProvider(uuid, nameMap.get(uuid), ccdConfig);
                 provider.setEnabled(uuid.equals(meta.getAppliedId()));
+                provider.setTags(tagsMap.getOrDefault(uuid, Collections.emptyList()));
                 providers.add(provider);
             }
         }
 
-        // Sort by the order stored in _meta.json entries
+        // Migrate: if we read from CCD dir, copy all files to primary dir
+        if (dir.equals(CcdConfigDir.getCcdPath())) {
+            migrateToPrimaryDir(dir);
+        }
+
         providers.sort(Comparator.comparingInt(p ->
                 orderMap.getOrDefault(p.getId(), Integer.MAX_VALUE)));
 
         return providers;
+    }
+
+    private void migrateToPrimaryDir(Path sourceDir) {
+        try {
+            Path targetDir = CcdConfigDir.getCcdConfigPath();
+            if (!Files.isDirectory(targetDir)) {
+                Files.createDirectories(targetDir);
+            }
+            try (Stream<Path> files = Files.list(sourceDir)) {
+                for (Path file : (Iterable<Path>) files::iterator) {
+                    if (!isValidUuidFile(file) && !file.getFileName().toString().equals("_meta.json")) continue;
+                    Path target = targetDir.resolve(file.getFileName());
+                    Files.copy(file, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        } catch (IOException ignored) {
+            // Migration is best-effort
+        }
     }
 
     /**
@@ -116,12 +150,10 @@ public class ProviderConfigIO {
         String uuid = UUID.randomUUID().toString();
         MetaConfig metaConfig = new MetaConfig();
 
-        // Convert and write the CCD config
         CcdProviderConfig ccdConfig = convertToCcdConfig(config);
-        mapper.writeValue(getProviderFilePath(uuid).toFile(), ccdConfig);
+        writeProviderFile(uuid, ccdConfig);
 
-        // Update _meta.json
-        metaConfig.upsertEntry(uuid, config.getName());
+        metaConfig.upsertEntry(uuid, config.getName(), config.getTags());
 
         Provider provider = new Provider();
         provider.setId(uuid);
@@ -129,6 +161,8 @@ public class ProviderConfigIO {
         provider.setApiUrl(config.getApiUrl());
         provider.setApiKey(config.getApiKey());
         provider.setModels(config.getModels());
+        provider.setApiMode(config.getApiMode());
+        provider.setTags(config.getTags());
         provider.setEnabled(false);
         return provider;
     }
@@ -139,12 +173,10 @@ public class ProviderConfigIO {
     public void update(String uuid, ProviderConfig config) throws IOException {
         MetaConfig metaConfig = new MetaConfig();
 
-        // Update CCD config file
         CcdProviderConfig ccdConfig = convertToCcdConfig(config);
-        mapper.writeValue(getProviderFilePath(uuid).toFile(), ccdConfig);
+        writeProviderFile(uuid, ccdConfig);
 
-        // Update name in _meta.json
-        metaConfig.upsertEntry(uuid, config.getName());
+        metaConfig.upsertEntry(uuid, config.getName(), config.getTags());
     }
 
     /**
@@ -153,12 +185,29 @@ public class ProviderConfigIO {
     public void delete(String uuid) throws IOException {
         MetaConfig metaConfig = new MetaConfig();
 
-        // Delete the config file
         File file = getProviderFilePath(uuid).toFile();
         if (file.exists()) file.delete();
+        File ccdFile = getCcdProviderFilePath(uuid).toFile();
+        if (ccdFile.exists()) ccdFile.delete();
 
-        // Remove from _meta.json
         metaConfig.removeEntry(uuid);
+    }
+
+    private void writeProviderFile(String uuid, CcdProviderConfig ccdConfig) throws IOException {
+        File primaryFile = getProviderFilePath(uuid).toFile();
+        File parentDir = primaryFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+        mapper.writeValue(primaryFile, ccdConfig);
+
+        // Sync to CCD dir
+        File ccdFile = getCcdProviderFilePath(uuid).toFile();
+        File ccdParentDir = ccdFile.getParentFile();
+        if (ccdParentDir != null && !ccdParentDir.exists()) {
+            ccdParentDir.mkdirs();
+        }
+        mapper.writeValue(ccdFile, ccdConfig);
     }
 
     /**
@@ -183,6 +232,7 @@ public class ProviderConfigIO {
             }
             provider.setApiUrl(apiUrl);
             provider.setApiKey(apiKey);
+            provider.setApiMode(ccdConfig.get_providerApiMode());
             if (ccdConfig.getInferenceModels() != null) {
                 provider.setModels(ccdConfig.getInferenceModels().stream()
                         .map(ccdModel -> new Model(
@@ -207,6 +257,8 @@ public class ProviderConfigIO {
         ccdConfig.setInferenceGatewayApiKey(config.getApiKey());
         ccdConfig.set_providerApiUrl(config.getApiUrl());
         ccdConfig.set_providerApiKey(config.getApiKey());
+        ccdConfig.set_providerApiMode(config.getApiMode());
+        ccdConfig.set_providerTags(config.getTags());
         if (config.getModels() != null) {
             ccdConfig.setInferenceModels(config.getModels().stream()
                     .map(model -> new CcdModel(

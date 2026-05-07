@@ -66,6 +66,7 @@ class ProxyServerTest {
     void setUp() throws Exception {
         tempDir = Path.of(System.getProperty("java.io.tmpdir"), "rc-test-" + System.nanoTime());
         tempDir.toFile().mkdirs();
+        System.setProperty("routerclaude.config.dir", tempDir.toString());
         System.setProperty("ccd.config.dir", tempDir.toString());
 
         // Create a provider with a real UUID (required by isValidUuidFile filter)
@@ -80,17 +81,20 @@ class ProxyServerTest {
         ccdConfig.setInferenceModels(java.util.List.of(
                 new com.routerclaude.model.ccd.CcdModel("claude-test-model", true)));
 
-        mapper.writeValue(tempDir.resolve(PROVIDER_UUID + ".json").toFile(), ccdConfig);
+        Path ccdDir = tempDir.resolve("ccd");
+        ccdDir.toFile().mkdirs();
+        mapper.writeValue(ccdDir.resolve(PROVIDER_UUID + ".json").toFile(), ccdConfig);
         Thread.sleep(100);
 
         proxyPort = findFreePort();
-        proxy = new ProxyServer(proxyPort);
+        proxy = new ProxyServer(proxyPort, null);
         proxy.start();
     }
 
     @AfterEach
     void tearDown() {
         if (proxy != null) proxy.stop();
+        System.clearProperty("routerclaude.config.dir");
         System.clearProperty("ccd.config.dir");
         deleteDir(tempDir);
     }
@@ -104,7 +108,12 @@ class ProxyServerTest {
     private static void deleteDir(Path dir) {
         if (dir.toFile().exists()) {
             var files = dir.toFile().listFiles();
-            if (files != null) for (var f : files) f.delete();
+            if (files != null) {
+                for (var f : files) {
+                    if (f.isDirectory()) deleteDir(f.toPath());
+                    else f.delete();
+                }
+            }
             dir.toFile().delete();
         }
     }

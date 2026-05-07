@@ -10,10 +10,15 @@ const ERROR_MAP: Record<string, string> = {
   MODELS_REQUIRED: "validation.model_required",
   IO_ERROR: "error.io_error",
   REQUEST_FAILED: "error.request_failed",
+  DISCOVER_INVALID_RESPONSE: "error.discover_invalid_response",
 };
 
 export function translateBackendError(msg: string, t: TFunction): string {
   const key = ERROR_MAP[msg];
   if (key) return t(key);
+  // Handle prefixed errors like "DISCOVER_FAILED:401"
+  const prefix = msg.split(":")[0];
+  const prefixKey = ERROR_MAP[prefix];
+  if (prefixKey) return t(prefixKey);
   return msg;
 }

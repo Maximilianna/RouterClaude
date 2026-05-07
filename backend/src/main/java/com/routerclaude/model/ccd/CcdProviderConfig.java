@@ -20,6 +20,8 @@ public class CcdProviderConfig {
     // Custom fields — CCD ignores unrecognized fields
     private String _providerApiUrl;
     private String _providerApiKey;
+    private String _providerApiMode;
+    private List<String> _providerTags;
 
     public CcdProviderConfig() {}
 
@@ -36,4 +38,8 @@ public class CcdProviderConfig {
     public void set_providerApiUrl(String _providerApiUrl) { this._providerApiUrl = _providerApiUrl; }
     public String get_providerApiKey() { return _providerApiKey; }
     public void set_providerApiKey(String _providerApiKey) { this._providerApiKey = _providerApiKey; }
+    public String get_providerApiMode() { return _providerApiMode; }
+    public void set_providerApiMode(String _providerApiMode) { this._providerApiMode = _providerApiMode; }
+    public List<String> get_providerTags() { return _providerTags; }
+    public void set_providerTags(List<String> _providerTags) { this._providerTags = _providerTags; }
 }

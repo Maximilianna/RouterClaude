@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -24,10 +24,15 @@ import {
   useDeleteProvider,
   useToggleProvider,
   useTestConnection,
+  useTestAll,
   useReorderProviders,
 } from "./hooks/useProviders";
 import ProviderCard from "./components/ProviderCard";
 import ProviderForm from "./components/ProviderForm";
+import LogPanel from "./components/LogPanel";
+import UsagePanel from "./components/UsagePanel";
+import AboutPanel from "./components/AboutPanel";
+import { ToastContainer, type ToastItem } from "./components/Toast";
 import type { Provider, ProviderConfig } from "./types/provider";
 import { API_BASE } from "./config";
 
@@ -47,6 +52,18 @@ function LanguageSwitcher() {
   );
 }
 
+type Tab = "providers" | "logs" | "usage" | "about";
+
+function translateMessage(msg: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (msg === "SUCCESS") return t("common.test_success_msg");
+  if (msg.startsWith("FAILED_HTTP:")) return t("common.test_failed_http", { code: msg.slice(12) });
+  if (msg === "INTERRUPTED") return t("common.test_interrupted");
+  if (msg === "SERVER_UNREACHABLE") return t("common.test_server_unreachable");
+  if (msg === "TIMEOUT") return t("common.test_timeout");
+  if (msg.startsWith("ERROR:")) return t("common.test_error", { detail: msg.slice(6) });
+  return msg;
+}
+
 function AppInner() {
   const { t } = useTranslation();
   const { data: providers = [], isLoading, error } = useProviders();
@@ -55,18 +72,30 @@ function AppInner() {
   const del = useDeleteProvider();
   const toggle = useToggleProvider();
   const test = useTestConnection();
+  const testAll = useTestAll();
   const reorder = useReorderProviders();
 
   const [editing, setEditing] = useState<Provider | null>(null);
   const [creating, setCreating] = useState(false);
   const [localProviders, setLocalProviders] = useState<Provider[]>([]);
+  const [tab, setTab] = useState<Tab>("providers");
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+
+  const addToast = useCallback((toast: Omit<ToastItem, "id">) => {
+    const id = Date.now().toString() + Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Sync with server data
   useEffect(() => {
     if (providers.length > 0) {
       setLocalProviders(providers);
@@ -102,6 +131,24 @@ function AppInner() {
     reorder.mutate(newProviders.map((p) => p.id));
   }
 
+  async function handleTestAll() {
+    const ids = localProviders.map((p) => p.id);
+    if (ids.length === 0) return;
+    try {
+      const results = await testAll.mutateAsync(ids);
+      for (const { id, result } of results) {
+        const provider = localProviders.find((p) => p.id === id);
+        addToast({
+          type: result.success ? "success" : "error",
+          message: `${provider?.name ?? id} ${translateMessage(result.message, t)}`,
+          detail: result.success && result.latencyMs >= 0 ? `${result.latencyMs}ms` : undefined,
+        });
+      }
+    } catch {
+      addToast({ type: "error", message: t("common.test_failed") });
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -129,86 +176,171 @@ function AppInner() {
     );
   }
 
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "providers", label: t("nav.providers") },
+    { key: "logs", label: t("nav.logs") },
+    { key: "usage", label: t("nav.usage") },
+    { key: "about", label: t("nav.about") },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20 p-6">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
               {t("app.title")}
             </h1>
-            <p className="text-sm text-gray-400 mt-1">{t("app.subtitle")}</p>
+            <p className="text-sm text-gray-400 mt-0.5">{t("app.subtitle")}</p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-0.5 bg-white/60 rounded-xl p-0.5 border border-gray-100">
+              {tabs.map((tb) => (
+                <button
+                  key={tb.key}
+                  onClick={() => setTab(tb.key)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                    tab === tb.key
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tb.label}
+                </button>
+              ))}
+            </div>
             <LanguageSwitcher />
-            {!creating && !editing && (
-              <button
-                onClick={() => setCreating(true)}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
-              >
-                + {t("provider.add")}
-              </button>
-            )}
           </div>
         </div>
 
-        {creating ? (
-          <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 backdrop-blur-sm shadow-sm">
-            <h2 className="font-semibold mb-5 text-gray-800">{t("provider.new")}</h2>
-            <ProviderForm
-              onSave={handleSave}
-              onCancel={() => setCreating(false)}
-            />
-          </div>
-        ) : editing ? (
-          <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 backdrop-blur-sm shadow-sm">
-            <h2 className="font-semibold mb-5 text-gray-800">{t("provider.edit")}</h2>
-            <ProviderForm
-              initial={editing}
-              onSave={handleSave}
-              onCancel={() => setEditing(null)}
-            />
-          </div>
-        ) : localProviders.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-4">
-              <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
+        {tab === "providers" && (
+          <>
+            <div className="flex items-center gap-3 mb-3">
+              {!creating && !editing && (
+                <>
+                  <button
+                    onClick={() => setCreating(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
+                  >
+                    + {t("provider.add")}
+                  </button>
+                  <button
+                    onClick={handleTestAll}
+                    disabled={testAll.isPending || localProviders.length === 0}
+                    className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {testAll.isPending ? t("common.testing") : t("common.test_all")}
+                  </button>
+                </>
+              )}
             </div>
-            <p className="text-gray-400 text-sm">{t("provider.empty")}</p>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={localProviders.map((p) => p.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-4">
-                {localProviders.map((p) => (
-                  <ProviderCard
-                    key={p.id}
-                    provider={p}
-                    onToggle={(enabled) => toggle.mutate({ id: p.id, enabled })}
-                    onEdit={() => setEditing(p)}
-                    onDelete={() => {
-                      if (confirm(t("provider.delete_confirm", { name: p.name }))) {
-                        del.mutate(p.id);
-                      }
-                    }}
-                    onTest={() => test.mutateAsync(p.id)}
-                    toggling={toggle.isPending}
-                  />
-                ))}
+
+            {(() => {
+              const allTags = Array.from(new Set(localProviders.flatMap((p) => p.tags ?? []))).sort();
+              if (allTags.length === 0) return null;
+              return (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => setFilterTag(null)}
+                    className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
+                      filterTag === null
+                        ? "bg-gray-800 text-white border-gray-800"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    {t("common.all")}
+                  </button>
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+                      className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
+                        filterTag === tag
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {creating ? (
+              <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
+                <h2 className="font-semibold mb-5 text-gray-800">{t("provider.new")}</h2>
+                <ProviderForm
+                  onSave={handleSave}
+                  onCancel={() => setCreating(false)}
+                  onToast={addToast}
+                />
               </div>
-            </SortableContext>
-          </DndContext>
+            ) : editing ? (
+              <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
+                <h2 className="font-semibold mb-5 text-gray-800">{t("provider.edit")}</h2>
+                <ProviderForm
+                  initial={editing}
+                  onSave={handleSave}
+                  onCancel={() => setEditing(null)}
+                  onToast={addToast}
+                />
+              </div>
+            ) : (filterTag ? localProviders.filter((p) => p.tags?.includes(filterTag)) : localProviders).length === 0 ? (
+              <div className="text-center py-20">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-4">
+                  <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <p className="text-gray-400 text-sm">{t("provider.empty")}</p>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={(filterTag ? localProviders.filter((p) => p.tags?.includes(filterTag)) : localProviders).map((p) => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-4">
+                    {(filterTag ? localProviders.filter((p) => p.tags?.includes(filterTag)) : localProviders).map((p) => (
+                      <ProviderCard
+                        key={p.id}
+                        provider={p}
+                        onToggle={(enabled) => toggle.mutate({ id: p.id, enabled })}
+                        onEdit={() => setEditing(p)}
+                        onDelete={() => {
+                          if (confirm(t("provider.delete_confirm", { name: p.name }))) {
+                            del.mutate(p.id);
+                          }
+                        }}
+                        onTest={async () => {
+                          const result = await test.mutateAsync(p.id);
+                          addToast({
+                            type: result.success ? "success" : "error",
+                            message: `${p.name} ${translateMessage(result.message, t)}`,
+                            detail: result.success && result.latencyMs >= 0 ? `${result.latencyMs}ms` : undefined,
+                          });
+                          return result;
+                        }}
+                        toggling={toggle.isPending}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </>
         )}
+
+        {tab === "logs" && <LogPanel />}
+        {tab === "usage" && <UsagePanel />}
+        {tab === "about" && <AboutPanel />}
       </div>
     </div>
   );

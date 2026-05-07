@@ -9,6 +9,8 @@ public class Provider {
     private String apiKey;
     private List<Model> models;
     private boolean enabled;
+    private String apiMode;
+    private List<String> tags;
 
     public Provider() {}
 
@@ -24,4 +26,8 @@ public class Provider {
     public void setModels(List<Model> models) { this.models = models; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getApiMode() { return apiMode; }
+    public void setApiMode(String apiMode) { this.apiMode = apiMode; }
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }
