@@ -70,7 +70,9 @@
     "tags": "标签",
     "add_tag": "添加标签",
     "empty": "暂无供应商，点击上方按钮添加",
-    "1m_context": "1M"
+    "1m_context": "1M",
+    "weight": "权重",
+    "weight_hint": "开启负载均衡后，权重越高接收的请求越多。"
   },
   "cli": {
     "add": "添加供应商",
@@ -184,7 +186,18 @@
     "cache_max_entries": "最大缓存条数",
     "cache_hint": "缓存非流式 API 响应，减少延迟和供应商费用。缓存命中时响应包含 X-Cache 头（HIT/MISS）。",
     "saved": "设置已保存",
-    "save_failed": "保存失败"
+    "save_failed": "保存失败",
+    "theme": "主题",
+    "theme_system": "跟随系统",
+    "theme_light": "浅色",
+    "theme_dark": "深色",
+    "lb": "负载均衡",
+    "lb_enabled": "启用负载均衡",
+    "lb_strategy": "策略",
+    "lb_strategy_round_robin": "轮询",
+    "lb_strategy_weighted": "加权",
+    "lb_strategy_lowest_latency": "最低延迟",
+    "lb_hint": "按客户端类型将请求分发到手动配置的供应商分组，支持故障时自动转移到健康供应商。"
   },
   "about": {
     "current_version": "当前版本",
@@ -196,5 +209,22 @@
     "release_notes": "更新日志",
     "confirm": "立即更新",
     "later": "稍后"
+  },
+  "lb": {
+    "no_entries": "该分组暂无供应商，点击下方按钮添加。",
+    "add_provider": "添加供应商"
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "action": "操作",
+    "key": "按键",
+    "press_key": "请按键...",
+    "reset": "恢复默认",
+    "switch_tab1": "切换到 CCD 标签页",
+    "switch_tab2": "切换到 CC CLI 标签页",
+    "add": "新增供应商",
+    "open_settings": "打开设置",
+    "escape": "返回 / 关闭",
+    "modifier_hint": "始终隐含 Ctrl/Meta 修饰键"
   }
 }

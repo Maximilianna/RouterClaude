@@ -9,8 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public class SettingsStore {
 
@@ -19,13 +18,20 @@ public class SettingsStore {
     private final ObjectMapper mapper;
     private final Path filePath;
 
-    private static final Map<String, Object> DEFAULTS = Map.of(
-            "retryMaxAttempts", 3,
-            "retryDelayMs", 1000,
-            "cacheEnabled", true,
-            "cacheTtlMs", 300000,
-            "cacheMaxEntries", 200
-    );
+    private static final Map<String, Object> DEFAULTS;
+    static {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("retryMaxAttempts", 3);
+        m.put("retryDelayMs", 1000);
+        m.put("cacheEnabled", true);
+        m.put("cacheTtlMs", 300000);
+        m.put("cacheMaxEntries", 200);
+        m.put("lbEnabled", false);
+        m.put("lbStrategy", "round_robin");
+        m.put("lbCcdEntries", List.of());
+        m.put("lbCcEntries", List.of());
+        DEFAULTS = Collections.unmodifiableMap(m);
+    }
 
     public SettingsStore() {
         this.mapper = new ObjectMapper();

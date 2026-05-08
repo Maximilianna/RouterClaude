@@ -1,5 +1,7 @@
 package com.routerclaude.model.ccd;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.List;
 
 /**
@@ -11,6 +13,7 @@ import java.util.List;
  * Custom fields (_ prefix, ignored by CCD): _providerApiUrl, _providerApiKey.
  * These store the actual provider API info so the proxy can forward requests.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CcdProviderConfig {
     private String inferenceProvider;
     private String inferenceGatewayBaseUrl;

@@ -165,7 +165,6 @@ export function useProxyStatus() {
   return useQuery<ProxyStatus>({
     queryKey: ["proxy", "status"],
     queryFn: () => request<ProxyStatus>(`${PROXY_API}/status`),
-    refetchInterval: 5000,
   });
 }
 
@@ -173,7 +172,6 @@ export function useProxyLogs(limit = 100) {
   return useQuery<ProxyLogEntry[]>({
     queryKey: ["proxy", "logs", limit],
     queryFn: () => request<ProxyLogEntry[]>(`${PROXY_API}/logs?limit=${limit}`),
-    refetchInterval: 5000,
   });
 }
 

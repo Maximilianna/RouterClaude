@@ -17,7 +17,7 @@ interface Props {
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+    <p className="mt-1.5 text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
       <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
       </svg>
@@ -147,11 +147,11 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
     <form onSubmit={handleSubmit} className="space-y-5">
       {!initial && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {t("provider.preset")}
           </label>
           <select
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none bg-white"
+            className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 transition-all duration-200 outline-none bg-white dark:bg-gray-700 dark:text-gray-200"
             value={selectedPreset}
             onChange={(e) => handlePresetChange(e.target.value)}
           >
@@ -166,14 +166,14 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t("provider.name")}
         </label>
         <input
-          className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-2 transition-all duration-200 outline-none ${
+          className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-2 transition-all duration-200 outline-none dark:bg-gray-700 dark:text-gray-200 ${
             errors.name
-              ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-              : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
+              ? "border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-700 dark:focus:border-red-600 dark:focus:ring-red-900/30"
+              : "border-gray-200 focus:border-blue-400 focus:ring-blue-100 dark:border-gray-600 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
           }`}
           placeholder={t("provider.name_placeholder")}
           value={name}
@@ -183,7 +183,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t("provider.api_mode")}
         </label>
         <div className="flex gap-3">
@@ -194,8 +194,8 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
               onClick={() => handleApiModeChange(mode)}
               className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all duration-200 ${
                 apiMode === mode
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 dark:shadow-blue-900/50"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
               }`}
             >
               {mode === "openai" ? "OpenAI" : "Anthropic"}
@@ -205,14 +205,14 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t("provider.api_url")}
         </label>
         <input
-          className={`w-full border rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 transition-all duration-200 outline-none ${
+          className={`w-full border rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 transition-all duration-200 outline-none dark:bg-gray-700 dark:text-gray-200 ${
             errors.apiUrl
-              ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-              : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
+              ? "border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-700 dark:focus:border-red-600 dark:focus:ring-red-900/30"
+              : "border-gray-200 focus:border-blue-400 focus:ring-blue-100 dark:border-gray-600 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
           }`}
           placeholder={t("provider.api_url_placeholder")}
           value={apiUrl}
@@ -222,15 +222,15 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t("provider.api_key")}
         </label>
         <div className="relative">
           <input
-            className={`w-full border rounded-xl px-4 py-2.5 pr-10 text-sm font-mono focus:ring-2 transition-all duration-200 outline-none ${
+            className={`w-full border rounded-xl px-4 py-2.5 pr-10 text-sm font-mono focus:ring-2 transition-all duration-200 outline-none dark:bg-gray-700 dark:text-gray-200 ${
               errors.apiKey
-                ? "border-red-300 focus:border-red-400 focus:ring-red-100"
-                : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
+                ? "border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-700 dark:focus:border-red-600 dark:focus:ring-red-900/30"
+                : "border-gray-200 focus:border-blue-400 focus:ring-blue-100 dark:border-gray-600 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
             }`}
             type={showApiKey ? "text" : "password"}
             placeholder={t("provider.api_key_placeholder")}
@@ -240,7 +240,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
           <button
             type="button"
             onClick={() => setShowApiKey(!showApiKey)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             {showApiKey ? (
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -259,14 +259,14 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("provider.models")}
           </label>
           <button
             type="button"
             onClick={handleDiscover}
             disabled={discover.isPending || !apiUrl.trim() || !apiKey.trim()}
-            className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {discover.isPending ? t("provider.discovering") : t("provider.discover")}
           </button>
@@ -276,7 +276,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {t("provider.tags")}
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
@@ -285,7 +285,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
             return (
               <span
                 key={tag}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 ${c.bg} ${c.text} text-xs rounded-full border ${c.border}`}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 ${c.bg} ${c.text} ${c.darkBg} ${c.darkText} text-xs rounded-full border ${c.border} ${c.darkBorder}`}
               >
                 {tag}
                 <button
@@ -303,7 +303,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
         </div>
         <div className="flex gap-2">
           <input
-            className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none"
+            className="flex-1 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:border-blue-400 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 transition-all duration-200 outline-none dark:bg-gray-700 dark:text-gray-200"
             placeholder={t("provider.add_tag")}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
@@ -317,7 +317,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
           <button
             type="button"
             onClick={addTag}
-            className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+            className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-xl transition-colors"
           >
             {t("common.add")}
           </button>
@@ -325,7 +325,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
       </div>
 
       {serverError && (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl text-sm border border-red-100 dark:border-red-800">
           <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
@@ -337,14 +337,14 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+          className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 transition-all duration-200"
         >
           {t("common.cancel")}
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 dark:shadow-blue-900/50 hover:shadow-md hover:shadow-blue-200 dark:hover:shadow-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
         >
           {saving ? t("common.saving") : initial ? t("common.update") : t("common.create")}
         </button>

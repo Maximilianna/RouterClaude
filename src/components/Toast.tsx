@@ -41,8 +41,8 @@ function Toast({ toast, onRemove }: { toast: ToastItem; onRemove: (id: string) =
         visible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       } ${
         isError
-          ? "bg-red-50 border-red-200 text-red-700"
-          : "bg-green-50 border-green-200 text-green-700"
+          ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400"
+          : "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400"
       }`}
     >
       {isError ? (

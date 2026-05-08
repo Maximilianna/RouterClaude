@@ -26,31 +26,31 @@ export default function ModelEditor({ models, onChange }: Props) {
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {t("provider.models")}
       </label>
       <div className="space-y-2.5">
         {models.map((model, i) => (
           <div key={i} className="flex items-center gap-2.5 group/model">
             <input
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none"
+              className="flex-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 transition-all duration-200 outline-none"
               placeholder={t("provider.model_name_placeholder")}
               value={model.name}
               onChange={(e) => update(i, "name", e.target.value)}
             />
-            <label className="flex items-center gap-1.5 text-sm text-gray-500 whitespace-nowrap cursor-pointer">
+            <label className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer">
               <input
                 type="checkbox"
                 checked={model.supports1m}
                 onChange={(e) => update(i, "supports1m", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-200 text-blue-600 focus:ring-blue-200 transition-colors"
+                className="w-4 h-4 rounded border-gray-200 dark:border-gray-600 text-blue-600 focus:ring-blue-200 dark:focus:ring-blue-900/50 transition-colors"
               />
               <span>{t("provider.1m_context")}</span>
             </label>
             <button
               type="button"
               onClick={() => remove(i)}
-              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover/model:opacity-100 transition-all duration-200"
+              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:text-gray-600 dark:hover:text-red-400 dark:hover:bg-red-900/20 rounded-lg opacity-0 group-hover/model:opacity-100 transition-all duration-200"
               title={t("provider.delete_model")}
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -63,7 +63,7 @@ export default function ModelEditor({ models, onChange }: Props) {
       <button
         type="button"
         onClick={add}
-        className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors"
       >
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />

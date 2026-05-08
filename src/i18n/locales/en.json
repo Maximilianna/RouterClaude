@@ -70,7 +70,9 @@
     "tags": "Tags",
     "add_tag": "Add tag",
     "empty": "No providers yet. Click the button above to add one.",
-    "1m_context": "1M"
+    "1m_context": "1M",
+    "weight": "Weight",
+    "weight_hint": "Higher weight receives more requests when load balancing is enabled."
   },
   "cli": {
     "add": "Add Provider",
@@ -184,7 +186,18 @@
     "cache_max_entries": "Max Cache Entries",
     "cache_hint": "Cache non-streaming API responses to reduce latency and provider costs. Cached responses include X-Cache header (HIT/MISS).",
     "saved": "Settings saved",
-    "save_failed": "Failed to save settings"
+    "save_failed": "Failed to save settings",
+    "theme": "Theme",
+    "theme_system": "System",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "lb": "Load Balancing",
+    "lb_enabled": "Enable Load Balancing",
+    "lb_strategy": "Strategy",
+    "lb_strategy_round_robin": "Round Robin",
+    "lb_strategy_weighted": "Weighted",
+    "lb_strategy_lowest_latency": "Lowest Latency",
+    "lb_hint": "Distribute requests across manually configured provider groups per client type. Includes automatic failover on errors."
   },
   "about": {
     "current_version": "Current Version",
@@ -196,5 +209,22 @@
     "release_notes": "Release Notes",
     "confirm": "Update Now",
     "later": "Later"
+  },
+  "lb": {
+    "no_entries": "No providers in this group yet. Click add below to start.",
+    "add_provider": "Add Provider"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "action": "Action",
+    "key": "Key",
+    "press_key": "Press a key...",
+    "reset": "Reset to Defaults",
+    "switch_tab1": "Switch to CCD Tab",
+    "switch_tab2": "Switch to CC CLI Tab",
+    "add": "Add Provider",
+    "open_settings": "Open Settings",
+    "escape": "Back / Dismiss",
+    "modifier_hint": "Ctrl/Meta is always implied"
   }
 }

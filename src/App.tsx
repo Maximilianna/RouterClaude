@@ -37,19 +37,27 @@ import { ToastContainer, type ToastItem } from "./components/Toast";
 import type { Provider, ProviderConfig } from "./types/provider";
 import { API_BASE } from "./config";
 import { getTagColor } from "./utils/tagColors";
+import { useTheme } from "./hooks/useTheme";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useShortcutConfig } from "./hooks/useShortcutConfig";
+import type { SubPage } from "./components/SettingsPanel";
 
 const qc = new QueryClient();
 
 function LanguageSwitcher() {
   const { i18n } = useTranslation();
+  const lang = i18n.language;
+  const value = lang.startsWith("zh") ? "zh-CN" : lang.startsWith("ja") ? "ja" : lang.startsWith("ko") ? "ko" : "en";
   return (
     <select
-      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
-      value={i18n.language.startsWith("zh") ? "zh-CN" : "en"}
+      className="text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 transition-all cursor-pointer"
+      value={value}
       onChange={(e) => i18n.changeLanguage(e.target.value)}
     >
       <option value="zh-CN">中文</option>
       <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="ko">한국어</option>
     </select>
   );
 }
@@ -86,7 +94,10 @@ function AppInner() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsSubPage, setSettingsSubPage] = useState<SubPage>(null);
+  const [aboutDialog, setAboutDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { config: shortcutConfig } = useShortcutConfig();
 
   const addToast = useCallback((toast: Omit<ToastItem, "id">) => {
     const id = Date.now().toString() + Math.random().toString(36).slice(2);
@@ -96,6 +107,24 @@ function AppInner() {
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  useKeyboardShortcuts(
+    {
+      onSwitchTab1: () => setTab("providers"),
+      onSwitchTab2: () => setTab("cli"),
+      onAdd: () => setCreating(true),
+      onOpenSettings: () => setShowSettings(true),
+      onEscape: () => {
+        if (aboutDialog) return; // AboutPanel handles its own dialog close
+        if (settingsSubPage) { setSettingsSubPage(null); return; }
+        if (showSettings) { setShowSettings(false); return; }
+        if (creating) { setCreating(false); return; }
+        if (editing) { setEditing(null); return; }
+      },
+    },
+    { showSettings, creating, editing: !!editing, showAboutDialog: aboutDialog, settingsSubPage: settingsSubPage ?? "" },
+    shortcutConfig,
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -198,7 +227,7 @@ function AppInner() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-400">
+        <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500">
           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -212,7 +241,7 @@ function AppInner() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl border border-red-100">
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl border border-red-100 dark:border-red-800">
           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
@@ -228,7 +257,7 @@ function AppInner() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 p-6">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-4">
@@ -241,7 +270,7 @@ function AppInner() {
             </div>
             <button
               onClick={() => setShowSettings(true)}
-              className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all duration-200"
+              className="p-1.5 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
               title={t("settings.title")}
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -252,15 +281,15 @@ function AppInner() {
           </div>
           {!showSettings && (
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-0.5 bg-white/60 rounded-xl p-0.5 border border-gray-100">
+              <div className="flex items-center gap-0.5 bg-white/60 dark:bg-gray-800/60 rounded-xl p-0.5 border border-gray-100 dark:border-gray-700">
                 {tabs.map((tb) => (
                   <button
                     key={tb.key}
                     onClick={() => setTab(tb.key)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                       tab === tb.key
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     }`}
                   >
                     {tb.label}
@@ -273,7 +302,13 @@ function AppInner() {
         </div>
 
         {showSettings ? (
-          <SettingsPanel onBack={() => setShowSettings(false)} onToast={addToast} />
+          <SettingsPanel
+            onBack={() => { setShowSettings(false); setSettingsSubPage(null); }}
+            onToast={addToast}
+            subPage={settingsSubPage}
+            setSubPage={setSettingsSubPage}
+            onAboutDialogChange={setAboutDialog}
+          />
         ) : (
           <>
             {tab === "providers" && (
@@ -283,28 +318,28 @@ function AppInner() {
                     <>
                       <button
                         onClick={() => setCreating(true)}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 dark:shadow-blue-900/50 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
                       >
                         + {t("provider.add")}
                       </button>
                       <button
                         onClick={handleTestAll}
                         disabled={testAll.isPending || localProviders.length === 0}
-                        className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {testAll.isPending ? t("common.testing") : t("common.test_all")}
                       </button>
                       <button
                         onClick={handleExport}
                         disabled={exportProviders.isPending || localProviders.length === 0}
-                        className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t("provider.export")}
                       </button>
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={importProviders.isPending}
-                        className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t("provider.import")}
                       </button>
@@ -328,8 +363,8 @@ function AppInner() {
                         onClick={() => setFilterTag(null)}
                         className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
                           filterTag === null
-                            ? "bg-gray-800 text-white border-gray-800"
-                            : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                            ? "bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200"
+                            : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
                         }`}
                       >
                         {t("common.all")}
@@ -343,8 +378,8 @@ function AppInner() {
                             onClick={() => setFilterTag(active ? null : tag)}
                             className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
                               active
-                                ? "bg-gray-800 text-white border-gray-800"
-                                : `${c.bg} ${c.text} ${c.border} hover:opacity-80`
+                                ? "bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200"
+                                : `${c.bg} ${c.text} ${c.border} ${c.darkBg} ${c.darkText} ${c.darkBorder} hover:opacity-80`
                             }`}
                           >
                             {tag}
@@ -356,8 +391,8 @@ function AppInner() {
                 })()}
 
                 {creating ? (
-                  <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
-                    <h2 className="font-semibold mb-5 text-gray-800">{t("provider.new")}</h2>
+                  <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-6 bg-white/80 dark:bg-gray-800/80 shadow-sm">
+                    <h2 className="font-semibold mb-5 text-gray-800 dark:text-gray-100">{t("provider.new")}</h2>
                     <ProviderForm
                       onSave={handleSave}
                       onCancel={() => setCreating(false)}
@@ -365,8 +400,8 @@ function AppInner() {
                     />
                   </div>
                 ) : editing ? (
-                  <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
-                    <h2 className="font-semibold mb-5 text-gray-800">{t("provider.edit")}</h2>
+                  <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-6 bg-white/80 dark:bg-gray-800/80 shadow-sm">
+                    <h2 className="font-semibold mb-5 text-gray-800 dark:text-gray-100">{t("provider.edit")}</h2>
                     <ProviderForm
                       initial={editing}
                       onSave={handleSave}
@@ -376,8 +411,8 @@ function AppInner() {
                   </div>
                 ) : (filterTag ? localProviders.filter((p) => p.tags?.includes(filterTag)) : localProviders).length === 0 ? (
                   <div className="text-center py-20">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-4">
-                      <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
+                      <svg className="h-8 w-8 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
@@ -434,6 +469,7 @@ function AppInner() {
 }
 
 export default function App() {
+  useTheme();
   return (
     <QueryClientProvider client={qc}>
       <AppInner />

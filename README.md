@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>AI 模型供应商配置管理工具 · 支持 CCD & CC CLI · 内置本地代理转发</b>
+  <b>AI 模型代理 & 负载均衡 · 支持 CCD & CC CLI · 本地运行</b>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
 </p>
 <p align="center">
-  <i>可视化管理 CCD &amp; Claude Code CLI 模型供应商配置 · 自动去除 <code>claude-</code> 前缀转发 · 全本地运行</i>
+  <i>本地 AI 模型代理 · 智能负载均衡 · 多供应商统一管理 · CCD & CC CLI 一键配置</i>
 </p>
 
 
@@ -34,11 +34,41 @@ RouterClaude 就是为了解决这个错位而生：
 2. **自动去除前缀** — 代理剥离 `claude-`，还原为 `DeepSeek-V4-Flash`
 3. **转发到真实供应商** — 使用正确的模型名调用供应商 API
 
-同时提供可视化界面管理多个供应商配置，一键切换 CCD 使用的模型。v1.2.0 起还支持 **Claude Code CLI** 的供应商配置管理，与 CCD 配置隔离。
+同时提供可视化界面管理多个供应商配置，支持 **负载均衡** 在多个供应商之间智能分配请求。v1.2.0 起还支持 **Claude Code CLI** 的供应商配置管理，与 CCD 配置隔离。
 
 ---
 
-## 功能特性
+## 核心功能
+
+### 代理服务（`:8901`）
+
+本地代理是 RouterClaude 的核心，所有 CCD / CC 的 API 请求都经过代理转发：
+
+| 能力 | 说明 |
+|---|---|
+| **模型名转换** | 自动去除 `claude-` 前缀，还原为供应商真实模型名 |
+| **SSE 流式透传** | 流式响应实时转发，零延迟体验 |
+| **Token 认证** | 代理 Token 保护真实 API Key，CCD/CC 配置中只填代理 Token |
+| **请求重试** | 5xx 错误或超时时自动重试，可配置重试次数和间隔 |
+| **响应缓存** | 非流式请求基于 SHA-256 哈希缓存，减少重复调用 |
+| **健康检查** | 定期探测供应商可用性，故障自动剔除 |
+
+### 负载均衡
+
+按客户端类型（CCD / CC）分别配置供应商分组，在多个供应商之间智能分配请求：
+
+| 策略 | 行为 |
+|---|---|
+| **轮询（Round Robin）** | 按顺序轮流调用分组内的供应商 |
+| **权重（Weighted）** | 按权重比例分配，如权重 2:1 则 A,A,B,A,A,B 循环 |
+| **最低延迟（Lowest Latency）** | 自动选择响应最快的供应商 |
+
+- **按客户端类型隔离** — CCD 和 CC 各自独立的供应商分组和策略
+- **模型池** — 每个供应商条目可配置多个模型，LB 自动选择
+- **故障转移** — 供应商不可用时自动跳过，选择下一个健康节点
+- **Web 实时监控** — 代理日志和用量数据通过 WebSocket 实时推送，虚拟滚动高性能渲染
+
+### 供应商管理
 
 <table>
 <tr>
@@ -53,32 +83,22 @@ RouterClaude 就是为了解决这个错位而生：
 </tr>
 <tr>
   <td width="50%">
-    <h4>🔄 模型名称转发</h4>
-    内置代理（<code>:8901</code>）自动去除 <code>claude-</code> 前缀，SSE 流式响应实时透传
-  </td>
-  <td width="50%">
     <h4>📊 用量图表</h4>
     趋势折线图 + 供应商/模型占比饼图，按日/周/月统计 Token 消耗
   </td>
+  <td width="50%">
+    <h4>📋 日志搜索 & 过滤</h4>
+    按模型、供应商、状态码筛选，关键词搜索，虚拟滚动高性能渲染
+  </td>
 </tr>
 <tr>
-  <td width="50%">
-    <h4>🔒 代理认证 & 缓存</h4>
-    Token 认证保护真实 API Key，响应缓存减少延迟和费用
-  </td>
   <td width="50%">
     <h4>📥 导入/导出</h4>
     供应商配置 JSON 导入导出，方便迁移和备份
   </td>
-</tr>
-<tr>
-  <td width="50%">
-    <h4>📋 日志搜索 & 过滤</h4>
-    按模型、供应商、状态码筛选，关键词搜索
-  </td>
   <td width="50%">
     <h4>🔒 完全本地运行</h4>
-    无云端依赖，中英文界面，支持自动更新检查
+    无云端依赖，中英日韩四语界面，支持自动更新检查
   </td>
 </tr>
 </table>
@@ -88,25 +108,55 @@ RouterClaude 就是为了解决这个错位而生：
 ## 架构
 
 ```
-    ┌───────────────────────────────────────────────────┐
-    │                  Tauri 桌面壳                      │
-    │   ┌──────────────────┐      ┌──────────────────┐  │
-    │   │   React UI       │      │   Java 后端      │  │
-    │   │   (WebView)      │◄────►│   (Spring Boot)  │  │
-    │   └──────────────────┘ REST └───────┬──────────┘  │
-    │                            :8900    │              │
-    └─────────────────────────────────────┼──────────────┘
-                                          │
-                  ┌───────────────────────┼───────────────────────┐
-                  │                       │                       │
-                  ▼                       ▼                       ▼
+    ┌───────────────────────────────────────────────────────────┐
+    │                     Tauri 桌面壳                           │
+    │   ┌──────────────────┐      ┌──────────────────────────┐  │
+    │   │   React UI       │      │   Java 后端              │  │
+    │   │   (WebView)      │◄────►│   (Spring Boot)          │  │
+    │   └──────────────────┘ REST └───────┬──────────────────┘  │
+    │                   + WebSocket :8900 │                      │
+    └────────────────────────────────────┼──────────────────────┘
+                                         │
+                  ┌──────────────────────┼──────────────────────┐
+                  │                      │                      │
+                  ▼                      ▼                      ▼
         ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
         │   CCD 配置文件    │  │  代理服务 :8901  │  │   供应商 API     │
-        │  _meta.json      │  │ 去除 claude- 前缀 │◄─│  DeepSeek / ...  │
-        │  {uuid}.json     │  │ → 转发真实请求    │  │                  │
-        └──────────────────┘  └──────────────────┘  └──────────────────┘
+        │  _meta.json      │  │                  │  │  DeepSeek        │
+        │  {uuid}.json     │  │  模型名转换      │  │  Mimo            │
+        └──────────────────┘  │  负载均衡        │  │  GLM / ...       │
+                              │  认证 & 缓存     │◄─│                  │
+                              │  重试 & 健康检查  │  └──────────────────┘
+                              └──────────────────┘
 
-   CCD ─── POST /v1/messages ───► 代理 :8901 ─── 去除前缀 ───► 供应商 API
+   CCD ── POST /v1/messages ──► 代理 :8901 ── 负载均衡选择 ──► 供应商 API
+                                 │
+                                 ├── 去除 claude- 前缀
+                                 ├── 按策略选择供应商 & 模型
+                                 ├── Token 认证替换
+                                 └── 重试 / 缓存 / 日志
+```
+
+### 请求流程
+
+```
+CCD 发送请求                    RouterClaude 代理                    供应商 API
+    │                                │                                  │
+    │  POST /v1/messages             │                                  │
+    │  model: claude-DeepSeek-V4     │                                  │
+    │  Authorization: proxy-token    │                                  │
+    ├───────────────────────────────►│                                  │
+    │                                │  1. 验证 proxy-token             │
+    │                                │  2. 匹配供应商（单选/LB）         │
+    │                                │  3. 去除 claude- 前缀            │
+    │                                │  4. 替换为真实 API Key            │
+    │                                │  5. 发送请求                     │
+    │                                │─────────────────────────────────►│
+    │                                │                                  │
+    │                                │  ◄── SSE 流式响应 ──             │
+    │                                │◄─────────────────────────────────│
+    │  ◄── 实时透传 ──               │  6. 记录日志 & 用量              │
+    │◄───────────────────────────────│  7. WebSocket 推送               │
 ```
 
 ### 配置目录结构
@@ -122,7 +172,7 @@ RouterClaude 就是为了解决这个错位而生：
 ├── data/                 # 应用数据（持久化）
 │   ├── logs.json         # 代理请求日志（最近 500 条）
 │   └── usage.json        # Token 用量记录（最近 10000 条）
-├── settings.json         # 全局设置（重试、缓存配置）
+├── settings.json         # 全局设置（LB 配置、重试、缓存）
 └── ccd-config/           # CCD settings.json（生成）
 ```
 
@@ -135,8 +185,9 @@ RouterClaude 就是为了解决这个错位而生：
 | 前端 | React 18, TypeScript 5, Vite 6, Tailwind CSS 3 |
 | 桌面壳 | Tauri 2 |
 | 后端 | Java 25, Spring Boot 3.4 |
+| 实时通信 | WebSocket（日志 & 用量推送） |
 | 数据库 | 无（基于文件系统的 JSON 配置 + 环形缓冲区持久化） |
-| 国际化 | i18next + react-i18next |
+| 国际化 | i18next + react-i18next（中/英/日/韩） |
 | 状态管理 | TanStack React Query |
 | 拖拽排序 | @dnd-kit |
 | 构建工具 | pnpm（前端）, Maven（后端） |
@@ -213,9 +264,16 @@ cd .. && pnpm tauri build
 4. 填写 API Key，可点击 **自动发现** 拉取模型列表
 5. 点击 **创建**
 
-### 启用供应商
+### 配置负载均衡
 
-勾选供应商卡片上的 **启用** 复选框，将该供应商设为 CCD 当前激活供应商（更新 `_meta.json` 中的 `appliedId`）。
+1. 进入 **设置** → **负载均衡**
+2. 开启负载均衡开关
+3. 选择策略（轮询 / 权重 / 最低延迟）
+4. 切换 CCD / CC 标签页，分别为不同客户端配置供应商分组
+5. 点击 **添加供应商**，选择要加入分组的供应商
+6. 为每个供应商条目选择参与负载均衡的模型
+7. 如选择权重策略，拖动滑块设置各供应商权重
+8. 点击 **保存**
 
 ### 在 CCD 中使用
 
@@ -224,10 +282,11 @@ cd .. && pnpm tauri build
 1. 在 CCD 中将推理网关地址设为 `http://127.0.0.1:8901`
 2. 选择以 `claude-` 开头的模型（如 `claude-DeepSeek-V4-Flash`）
 3. CCD 发送请求到本地代理，代理自动去除前缀并转发到真实供应商 API
+4. 如开启负载均衡，代理会按配置的策略在供应商分组中智能分配请求
 
 ### 查看日志和用量
 
-切换到 **日志** 标签页查看代理请求记录，切换到 **用量** 标签页查看 Token 消耗统计。数据在应用重启后自动恢复。
+切换到 **日志** 标签页查看代理请求记录（WebSocket 实时推送），切换到 **用量** 标签页查看 Token 消耗统计。数据在应用重启后自动恢复。
 
 ### 检查更新
 
@@ -237,8 +296,8 @@ cd .. && pnpm tauri build
 
 | 端口 | 服务 | 说明 |
 |---|---|---|
-| `8900` | 管理 API | 前端调用的后端 REST API |
-| `8901` | 代理服务 | CCD 请求转发代理 |
+| `8900` | 管理 API | 前端调用的后端 REST API + WebSocket |
+| `8901` | 代理服务 | CCD / CC 请求转发代理 |
 
 ---
 
@@ -276,13 +335,21 @@ cd .. && pnpm tauri build
 | `POST` | `/api/claude-cli/export` | 导出配置 |
 | `POST` | `/api/claude-cli/import` | 导入配置 |
 
+### 负载均衡 API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/lb/config` | 获取 LB 配置（策略、CCD/CC 分组） |
+| `PUT` | `/api/lb/config` | 更新 LB 配置 |
+| `GET` | `/api/lb/providers?type=ccd\|cc` | 获取可选供应商列表（含模型） |
+
 ### 代理 API（`:8901`）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | `POST` | `/v1/messages` | 转发 Claude Messages API 请求 |
 | `POST` | `/v1/complete` | 转发 Claude Completions API 请求 |
-| `GET` | `/v1/models` | 获取当前启用供应商的模型列表 |
+| `GET` | `/v1/models` | 获取当前可用模型列表（LB 开启时返回分组内模型） |
 
 ### 代理状态 API（`:8900`）
 
@@ -298,11 +365,19 @@ cd .. && pnpm tauri build
 | `GET` | `/api/usage/summary?period=today` | Token 用量汇总（today/week/month） |
 | `GET` | `/api/usage/details?limit=50` | 最近调用明细 |
 
+### WebSocket（`:8900/ws`）
+
+| 消息类型 | 数据 | 触发时机 |
+|---|---|---|
+| `proxy_log` | `{ timestamp, model, providerName, statusCode, latencyMs, isError }` | 每次代理请求完成 |
+| `proxy_status` | `{ running, port, totalRequests, errorRate, startupError }` | 代理启动/停止 |
+| `usage_update` | `{ totalTokens, promptTokens, completionTokens, requestCount }` | 用量数据变更 |
+
 ### 更新检查 API（`:8900`）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/update/check?currentVersion=1.2.0` | 检查 GitHub Releases 最新版本 |
+| `GET` | `/api/update/check?currentVersion=1.3.0` | 检查 GitHub Releases 最新版本 |
 
 ### 设置 API（`:8900`）
 
@@ -324,25 +399,27 @@ router-claude/
 │   │   ├── ClaudeCliCard.tsx     # CLI 供应商卡片
 │   │   ├── ClaudeCliForm.tsx     # CLI 供应商表单（API模式、1M上下文）
 │   │   ├── ClaudeCliPanel.tsx    # CLI 供应商管理面板
-│   │   ├── SettingsPanel.tsx     # 设置面板（重试、缓存配置）
-│   │   ├── LogPanel.tsx          # 代理日志面板（搜索、过滤）
+│   │   ├── LbPanel.tsx           # 负载均衡配置面板
+│   │   ├── SettingsPanel.tsx     # 设置面板（LB、重试、缓存配置）
+│   │   ├── LogPanel.tsx          # 代理日志面板（WebSocket + 虚拟滚动）
 │   │   ├── UsagePanel.tsx        # Token 用量统计（折线图、饼图）
 │   │   ├── AboutPanel.tsx        # 关于页面（版本信息、更新检查）
 │   │   └── Toast.tsx             # Toast 弹窗组件
-│   ├── hooks/                    # TanStack Query Hooks
+│   ├── hooks/                    # TanStack Query Hooks + WebSocket + 虚拟滚动
 │   ├── data/                     # 预设供应商数据
 │   ├── utils/                    # 工具函数（错误码翻译）
-│   ├── i18n/                     # 中英文语言包
+│   ├── i18n/                     # 中英日韩语言包
 │   └── types/                    # TypeScript 类型定义
 ├── src-tauri/                    # Tauri 桌面壳
 │   ├── src/main.rs               # 入口，管理 Java sidecar 生命周期
 │   └── capabilities/             # Tauri 权限配置
 ├── backend/                      # Java Spring Boot 后端
 │   └── src/main/java/com/routerclaude/
-│       ├── controller/           # REST API 控制器
-│       ├── service/              # 业务逻辑层
-│       ├── config/               # 配置文件读写 + 数据持久化
+│       ├── controller/           # REST API 控制器（含 LB 配置）
+│       ├── service/              # 业务逻辑（含 LoadBalancerService）
+│       ├── config/               # 配置文件读写 + 数据持久化 + SettingsStore
 │       ├── proxy/                # 模型转发代理服务器 + 日志
+│       ├── websocket/            # WebSocket 事件推送
 │       └── model/                # 数据模型
 └── docs/                         # 开发文档
 ```
@@ -350,6 +427,13 @@ router-claude/
 ---
 
 ## 更新日志
+
+### v1.3.0
+
+- **负载均衡**：按客户端类型（CCD/CC）独立配置供应商分组，支持三种策略 — 轮询、权重（确定性加权轮询）、最低延迟
+- **代理优化**：代理日志和用量数据通过 WebSocket 实时推送，替代 REST 轮询
+- **虚拟滚动**：日志列表虚拟滚动渲染，500+ 条日志流畅滚动
+- **健康检查**：定期探测供应商可用性，故障节点自动剔除
 
 ### v1.2.0
 

@@ -3,10 +3,12 @@ package com.routerclaude.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.routerclaude.config.DataStore;
 import com.routerclaude.model.UsageRecord;
+import com.routerclaude.websocket.EventWebSocketHandler;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,6 +24,8 @@ public class UsageService {
     private static final int MAX_RECORDS = 10000;
     private final ConcurrentLinkedDeque<UsageRecord> records = new ConcurrentLinkedDeque<>();
     private final DataStore<UsageRecord> store = new DataStore<>("usage.json", new TypeReference<>() {});
+    @Autowired(required = false)
+    private EventWebSocketHandler wsHandler;
 
     @PostConstruct
     public void init() {
@@ -45,6 +49,9 @@ public class UsageService {
             records.removeLast();
         }
         flush();
+        if (wsHandler != null) {
+            wsHandler.broadcast("usage_update", getSummary("today"));
+        }
     }
 
     public void flush() {

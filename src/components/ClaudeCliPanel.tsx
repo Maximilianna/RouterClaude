@@ -156,7 +156,7 @@ export default function ClaudeCliPanel({ onToast }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="flex items-center gap-3 text-gray-400">
+        <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500">
           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -170,7 +170,7 @@ export default function ClaudeCliPanel({ onToast }: Props) {
   if (error) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl border border-red-100">
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl border border-red-100 dark:border-red-800">
           <span className="text-sm">{error.message}</span>
         </div>
       </div>
@@ -186,28 +186,28 @@ export default function ClaudeCliPanel({ onToast }: Props) {
           <>
             <button
               onClick={() => setCreating(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-200 dark:shadow-blue-900/50 hover:shadow-md hover:shadow-blue-200 transition-all duration-200"
             >
               + {t("cli.add")}
             </button>
             <button
               onClick={handleTestAll}
               disabled={testAll.isPending || localProviders.length === 0}
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {testAll.isPending ? t("common.testing") : t("common.test_all")}
             </button>
             <button
               onClick={handleExport}
               disabled={exportProviders.isPending || localProviders.length === 0}
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("cli.export")}
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={importProviders.isPending}
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t("cli.import")}
             </button>
@@ -228,8 +228,8 @@ export default function ClaudeCliPanel({ onToast }: Props) {
             onClick={() => setFilterTag(null)}
             className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
               filterTag === null
-                ? "bg-gray-800 text-white border-gray-800"
-                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                ? "bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200"
+                : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
             }`}
           >
             {t("common.all")}
@@ -243,8 +243,8 @@ export default function ClaudeCliPanel({ onToast }: Props) {
                 onClick={() => setFilterTag(active ? null : tag)}
                 className={`px-3 py-1 text-xs rounded-full border transition-all duration-200 ${
                   active
-                    ? "bg-gray-800 text-white border-gray-800"
-                    : `${c.bg} ${c.text} ${c.border} hover:opacity-80`
+                    ? "bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200"
+                    : `${c.bg} ${c.text} ${c.border} ${c.darkBg} ${c.darkText} ${c.darkBorder} hover:opacity-80`
                 }`}
               >
                 {tag}
@@ -255,16 +255,16 @@ export default function ClaudeCliPanel({ onToast }: Props) {
       )}
 
       {creating ? (
-        <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
-          <h2 className="font-semibold mb-5 text-gray-800">{t("cli.new")}</h2>
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-6 bg-white/80 dark:bg-gray-800/80 shadow-sm">
+          <h2 className="font-semibold mb-5 text-gray-800 dark:text-gray-100">{t("cli.new")}</h2>
           <ClaudeCliForm
             onSave={handleSave}
             onCancel={() => setCreating(false)}
           />
         </div>
       ) : editing ? (
-        <div className="border border-gray-100 rounded-2xl p-6 bg-white/80 shadow-sm">
-          <h2 className="font-semibold mb-5 text-gray-800">{t("cli.edit")}</h2>
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-6 bg-white/80 dark:bg-gray-800/80 shadow-sm">
+          <h2 className="font-semibold mb-5 text-gray-800 dark:text-gray-100">{t("cli.edit")}</h2>
           <ClaudeCliForm
             initial={editing}
             onSave={handleSave}
@@ -273,8 +273,8 @@ export default function ClaudeCliPanel({ onToast }: Props) {
         </div>
       ) : (filterTag ? localProviders.filter((p) => p.tags?.includes(filterTag)) : localProviders).length === 0 ? (
         <div className="text-center py-20">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-4">
-            <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
+            <svg className="h-8 w-8 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>

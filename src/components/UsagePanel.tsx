@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUsageSummary, useUsageDetails } from "../hooks/useProviders";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 type Period = "today" | "week" | "month";
 
@@ -70,14 +71,14 @@ function DonutChart({ entries, total }: { entries: [string, number][]; total: nu
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           {hoveredSlice ? (
             <>
-              <span className="text-[11px] text-gray-500 max-w-[80px] truncate text-center">{hoveredSlice.name}</span>
-              <span className="text-sm font-bold font-mono text-gray-900">{(hoveredSlice.fraction * 100).toFixed(1)}%</span>
-              <span className="text-[10px] font-mono text-gray-400">{formatTokens(hoveredSlice.value)}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 max-w-[80px] truncate text-center">{hoveredSlice.name}</span>
+              <span className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">{(hoveredSlice.fraction * 100).toFixed(1)}%</span>
+              <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">{formatTokens(hoveredSlice.value)}</span>
             </>
           ) : (
             <>
-              <span className="text-lg font-bold font-mono text-gray-900">{formatTokens(total)}</span>
-              <span className="text-[10px] text-gray-400">Total</span>
+              <span className="text-lg font-bold font-mono text-gray-900 dark:text-gray-100">{formatTokens(total)}</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">Total</span>
             </>
           )}
         </div>
@@ -91,7 +92,7 @@ function DonutChart({ entries, total }: { entries: [string, number][]; total: nu
             onMouseLeave={() => setHovered(null)}
           >
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
-            <span className={`flex-1 truncate ${hovered === i ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+            <span className={`flex-1 truncate ${hovered === i ? "text-gray-900 dark:text-gray-100 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
               {s.name}
             </span>
           </div>
@@ -208,15 +209,14 @@ function TrendLine({ details, period }: { details: { timestamp: number; promptTo
       >
         {gridLines.map((g, i) => (
           <g key={i}>
-            <line x1={padL} y1={g.y} x2={w - padR} y2={g.y} stroke="#f3f4f6" strokeWidth={1} />
-            <text x={padL - 8} y={g.y + 4} textAnchor="end" className="fill-gray-300" fontSize={10} fontFamily="monospace">
+            <line x1={padL} y1={g.y} x2={w - padR} y2={g.y} className="stroke-gray-200 dark:stroke-gray-700" strokeWidth={1} />
+            <text x={padL - 8} y={g.y + 4} textAnchor="end" className="fill-gray-300 dark:fill-gray-600" fontSize={10} fontFamily="monospace">
               {g.label}
             </text>
           </g>
         ))}
 
-        {/* Y-axis label */}
-        <text x={12} y={padT + chartH / 2} textAnchor="middle" className="fill-gray-400" fontSize={10} transform={`rotate(-90, 12, ${padT + chartH / 2})`}>
+        <text x={12} y={padT + chartH / 2} textAnchor="middle" className="fill-gray-400 dark:fill-gray-500" fontSize={10} transform={`rotate(-90, 12, ${padT + chartH / 2})`}>
           Tokens
         </text>
 
@@ -246,8 +246,8 @@ function TrendLine({ details, period }: { details: { timestamp: number; promptTo
 
         {hoveredPt && (
           <>
-            <line x1={hoveredPt.x} y1={padT} x2={hoveredPt.x} y2={padT + chartH} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />
-            <circle cx={hoveredPt.x} cy={hoveredPt.y} r={4} fill="#3b82f6" stroke="white" strokeWidth={2} />
+            <line x1={hoveredPt.x} y1={padT} x2={hoveredPt.x} y2={padT + chartH} className="stroke-gray-400 dark:stroke-gray-500" strokeWidth={1} strokeDasharray="3 3" />
+            <circle cx={hoveredPt.x} cy={hoveredPt.y} r={4} fill="#3b82f6" stroke="white" strokeWidth={2} className="dark:stroke-gray-800" />
           </>
         )}
 
@@ -255,7 +255,7 @@ function TrendLine({ details, period }: { details: { timestamp: number; promptTo
           const step = period === "today" ? 3 : period === "month" ? Math.ceil(buckets.length / 10) : 1;
           if (i % step === 0 || i === buckets.length - 1) {
             return (
-              <text key={i} x={p.x} y={padT + chartH + 16} textAnchor="middle" className="fill-gray-300" fontSize={9} fontFamily="monospace">
+              <text key={i} x={p.x} y={padT + chartH + 16} textAnchor="middle" className="fill-gray-300 dark:fill-gray-600" fontSize={9} fontFamily="monospace">
                 {p.label}
               </text>
             );
@@ -263,17 +263,16 @@ function TrendLine({ details, period }: { details: { timestamp: number; promptTo
           return null;
         })}
 
-        {/* X-axis label */}
-        <text x={padL + chartW / 2} y={h - 2} textAnchor="middle" className="fill-gray-400" fontSize={10}>
+        <text x={padL + chartW / 2} y={h - 2} textAnchor="middle" className="fill-gray-400 dark:fill-gray-500" fontSize={10}>
           {t("usage.time")}
         </text>
       </svg>
 
       {hoveredPt && (
         <div className="absolute top-0 left-0 pointer-events-none" style={{ transform: `translate(${hoveredPt.x + 8}px, ${hoveredPt.y - 10}px)` }}>
-          <div className="bg-white/95 backdrop-blur border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap">
-            <div className="font-mono text-gray-900 font-medium">{formatTokens(hoveredPt.total)} tokens</div>
-            <div className="text-gray-400 mt-0.5">
+          <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap">
+            <div className="font-mono text-gray-900 dark:text-gray-100 font-medium">{formatTokens(hoveredPt.total)} tokens</div>
+            <div className="text-gray-400 dark:text-gray-500 mt-0.5">
               <span className="text-blue-500">{formatTokens(hoveredPt.prompt)}</span> prompt +{" "}
               <span className="text-indigo-500">{formatTokens(hoveredPt.completion)}</span> completion
             </div>
@@ -281,7 +280,7 @@ function TrendLine({ details, period }: { details: { timestamp: number; promptTo
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-5 mt-2 text-[11px] text-gray-400">
+      <div className="flex items-center justify-center gap-5 mt-2 text-[11px] text-gray-400 dark:text-gray-500">
         <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-blue-500 rounded" /> Total</span>
         <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-blue-400 rounded" style={{ borderTop: "1.5px dashed #60a5fa", height: 0 }} /> Prompt</span>
         <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-indigo-400 rounded" style={{ borderTop: "1.5px dashed #818cf8", height: 0 }} /> Completion</span>
@@ -296,13 +295,26 @@ export default function UsagePanel() {
   const [period, setPeriod] = useState<Period>("today");
   const { data: summary, isFetching: fetchingSummary } = useUsageSummary(period);
   const { data: details = [], isFetching: fetchingDetails } = useUsageDetails(200);
+  const { subscribe } = useWebSocket();
+
+  // Real-time usage updates via WebSocket
+  const [wsSummary, setWsSummary] = useState<typeof summary>(undefined);
+  useEffect(() => {
+    const unsub = subscribe("usage_update", (data) => {
+      setWsSummary(data as typeof summary);
+    });
+    return unsub;
+  }, [subscribe]);
+
+  // Use WS data when viewing "today", otherwise use REST data
+  const effectiveSummary = (period === "today" && wsSummary) ? wsSummary : summary;
 
   function handleRefresh() {
     qc.invalidateQueries({ queryKey: ["usage"] });
   }
 
-  const providerEntries = Object.entries(summary?.byProvider ?? {}).sort((a, b) => b[1] - a[1]);
-  const modelEntries = Object.entries(summary?.byModel ?? {}).sort((a, b) => b[1] - a[1]);
+  const providerEntries = Object.entries(effectiveSummary?.byProvider ?? {}).sort((a, b) => b[1] - a[1]);
+  const modelEntries = Object.entries(effectiveSummary?.byModel ?? {}).sort((a, b) => b[1] - a[1]);
 
   function formatTime(ts: number) {
     return new Date(ts).toLocaleTimeString();
@@ -319,8 +331,8 @@ export default function UsagePanel() {
             onClick={() => setPeriod(p)}
             className={`px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
               period === p
-                ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-200 dark:shadow-blue-900/50"
+                : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:border-gray-500"
             }`}
           >
             {t(`usage.${p}`)}
@@ -329,7 +341,7 @@ export default function UsagePanel() {
         <button
           onClick={handleRefresh}
           disabled={isFetching}
-          className="ml-auto p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          className="ml-auto p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
           title={t("common.refresh")}
         >
           <svg
@@ -345,70 +357,70 @@ export default function UsagePanel() {
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
-          <p className="text-3xl font-bold text-gray-900 font-mono">
-            {(summary?.totalTokens ?? 0).toLocaleString()}
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80 text-center">
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 font-mono">
+            {(effectiveSummary?.totalTokens ?? 0).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-400 mt-1">{t("usage.total_tokens")}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("usage.total_tokens")}</p>
         </div>
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
-          <p className="text-3xl font-bold text-blue-600 font-mono">
-            {(summary?.totalPromptTokens ?? 0).toLocaleString()}
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80 text-center">
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 font-mono">
+            {(effectiveSummary?.totalPromptTokens ?? 0).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-400 mt-1">{t("usage.prompt_tokens")}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("usage.prompt_tokens")}</p>
         </div>
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
-          <p className="text-3xl font-bold text-indigo-600 font-mono">
-            {(summary?.totalCompletionTokens ?? 0).toLocaleString()}
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80 text-center">
+          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+            {(effectiveSummary?.totalCompletionTokens ?? 0).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-400 mt-1">{t("usage.completion_tokens")}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("usage.completion_tokens")}</p>
         </div>
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
-          <p className="text-3xl font-bold text-emerald-600 font-mono">
-            {(summary?.requestCount ?? 0).toLocaleString()}
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80 text-center">
+          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+            {(effectiveSummary?.requestCount ?? 0).toLocaleString()}
           </p>
-          <p className="text-sm text-gray-400 mt-1">{t("usage.request_count")}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t("usage.request_count")}</p>
         </div>
       </div>
 
       {providerEntries.length === 0 && modelEntries.length === 0 && details.length === 0 && (
-        <div className="border border-gray-100 rounded-2xl p-8 bg-white/80 text-center">
-          <p className="text-sm text-gray-400">{t("usage.no_data_hint")}</p>
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-8 bg-white/80 dark:bg-gray-800/80 text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">{t("usage.no_data_hint")}</p>
         </div>
       )}
 
       {details.length > 0 && (
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
-          <h3 className="font-semibold text-gray-900 mb-4">{t("usage.trend")}</h3>
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t("usage.trend")}</h3>
           <TrendLine details={details} period={period} />
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-4">
         {providerEntries.length > 0 && (
-          <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
-            <h3 className="font-semibold text-gray-900 mb-4">{t("usage.provider_ratio")}</h3>
-            <DonutChart entries={providerEntries} total={summary?.totalTokens ?? 0} />
+          <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t("usage.provider_ratio")}</h3>
+            <DonutChart entries={providerEntries} total={effectiveSummary?.totalTokens ?? 0} />
           </div>
         )}
 
         {modelEntries.length > 0 && (
-          <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
-            <h3 className="font-semibold text-gray-900 mb-4">{t("usage.model_ratio")}</h3>
-            <DonutChart entries={modelEntries.slice(0, 8)} total={summary?.totalTokens ?? 0} />
+          <div className="border border-gray-100 dark:border-gray-700 rounded-2xl p-5 bg-white/80 dark:bg-gray-800/80">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t("usage.model_ratio")}</h3>
+            <DonutChart entries={modelEntries.slice(0, 8)} total={effectiveSummary?.totalTokens ?? 0} />
           </div>
         )}
       </div>
 
       {details.length > 0 && (
-        <div className="border border-gray-100 rounded-2xl bg-white/80 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">{t("usage.recent_details")}</h3>
+        <div className="border border-gray-100 dark:border-gray-700 rounded-2xl bg-white/80 dark:bg-gray-800/80 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("usage.recent_details")}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-xs">
+                <tr className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 text-xs">
                   <th className="text-left px-4 py-3 font-medium">{t("usage.time")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("usage.provider")}</th>
                   <th className="text-left px-4 py-3 font-medium">{t("usage.model")}</th>
@@ -421,16 +433,16 @@ export default function UsagePanel() {
                 {details.map((r, i) => (
                   <tr
                     key={i}
-                    className={`border-t border-gray-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                    className={`border-t border-gray-50 dark:border-gray-700/50 ${i % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50/50 dark:bg-gray-800/50"}`}
                   >
-                    <td className="px-4 py-2.5 font-mono text-xs text-gray-500">
+                    <td className="px-4 py-2.5 font-mono text-xs text-gray-500 dark:text-gray-400">
                       {formatTime(r.timestamp)}
                     </td>
-                    <td className="px-4 py-2.5 text-xs">{r.providerName}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{r.model}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs">{r.promptTokens}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs">{r.completionTokens}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-xs font-medium">
+                    <td className="px-4 py-2.5 text-xs dark:text-gray-300">{r.providerName}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs dark:text-gray-300">{r.model}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs dark:text-gray-300">{r.promptTokens}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs dark:text-gray-300">{r.completionTokens}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs font-medium dark:text-gray-300">
                       {r.totalTokens}
                     </td>
                   </tr>
