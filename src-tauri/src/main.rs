@@ -30,62 +30,76 @@ fn jar_path(app: &tauri::AppHandle) -> PathBuf {
             .unwrap()
             .join("backend")
             .join("target")
-            .join("routerclaude-backend-1.2.0.jar")
+            .join("routerclaude-backend-1.3.0.jar")
     } else {
-        // Prod: try resource_dir, then exe parent dir
-        let jar_name = "routerclaude-backend-1.2.0.jar";
+        let jar_name = "routerclaude-backend-1.3.0.jar";
+        let exe_dir = std::env::current_exe().ok()
+            .and_then(|e| e.parent().map(|p| p.to_path_buf()));
 
+        // MSI installs resources next to the exe
+        if let Some(ref dir) = exe_dir {
+            let p = dir.join(jar_name);
+            if p.exists() { return p; }
+        }
+        // Tauri resource_dir (may differ from exe dir)
         if let Ok(dir) = app.path().resource_dir() {
             let p = dir.join(jar_name);
-            if p.exists() {
-                return p;
-            }
+            if p.exists() { return p; }
         }
-
-        // Fallback: alongside the executable
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(parent) = exe.parent() {
-                let paths = [
-                    parent.join(jar_name),
-                    parent.join("_up_").join("backend").join("target").join(jar_name),
-                ];
-                for p in &paths {
-                    if p.exists() {
-                        return p.clone();
-                    }
-                }
-            }
+        // Dev fallback
+        if let Some(ref dir) = exe_dir {
+            let p = dir.join("_up_").join("backend").join("target").join(jar_name);
+            if p.exists() { return p; }
         }
-
-        // Last resort
         eprintln!("Backend JAR not found");
         PathBuf::from(jar_name)
     }
 }
 
 /// Resolve the JRE binary path (bundled jlink JRE or system Java).
-fn java_bin() -> PathBuf {
-    // Check for bundled jlink JRE first (prod builds)
-    let bundled_jre = bundled_jre_path();
-    if bundled_jre.exists() {
-        return bundled_jre;
+#[cfg(target_os = "windows")]
+fn java_bin(app: &tauri::AppHandle) -> PathBuf {
+    let jre_name = "jre/bin/java.exe";
+    let exe_dir = std::env::current_exe().ok()
+        .and_then(|e| e.parent().map(|p| p.to_path_buf()));
+
+    // MSI installs resources next to the exe
+    if let Some(ref dir) = exe_dir {
+        let p = dir.join(jre_name);
+        if p.exists() { return p; }
     }
-    // Fall back to system Java
+    // Tauri resource_dir
+    if let Ok(dir) = app.path().resource_dir() {
+        let p = dir.join(jre_name);
+        if p.exists() { return p; }
+    }
+    // Fallback: _up_/backend/target/jre (Tauri resource bundling layout)
+    if let Some(ref dir) = exe_dir {
+        let p = dir.join("_up_").join("backend").join("target").join(jre_name);
+        if p.exists() { return p; }
+    }
     PathBuf::from("java")
 }
 
-#[cfg(target_os = "windows")]
-fn bundled_jre_path() -> PathBuf {
-    let exe = std::env::current_exe().unwrap_or_default();
-    let dir = exe.parent().unwrap_or(std::path::Path::new("."));
-    dir.join("jre").join("bin").join("java.exe")
-}
-
 #[cfg(not(target_os = "windows"))]
-fn bundled_jre_path() -> PathBuf {
-    let exe = std::env::current_exe().unwrap_or_default();
-    let dir = exe.parent().unwrap_or(std::path::Path::new("."));
-    dir.join("jre").join("bin").join("java")
+fn java_bin(app: &tauri::AppHandle) -> PathBuf {
+    let jre_name = "jre/bin/java";
+    let exe_dir = std::env::current_exe().ok()
+        .and_then(|e| e.parent().map(|p| p.to_path_buf()));
+
+    if let Some(ref dir) = exe_dir {
+        let p = dir.join(jre_name);
+        if p.exists() { return p; }
+    }
+    if let Ok(dir) = app.path().resource_dir() {
+        let p = dir.join(jre_name);
+        if p.exists() { return p; }
+    }
+    if let Some(ref dir) = exe_dir {
+        let p = dir.join("_up_").join("backend").join("target").join(jre_name);
+        if p.exists() { return p; }
+    }
+    PathBuf::from("java")
 }
 
 /// Wait for a TCP port to be ready, polling every 200ms.
@@ -102,22 +116,38 @@ fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
 
 fn start_backend(app: &tauri::AppHandle) -> Option<Child> {
     let jar = jar_path(app);
-    let java = java_bin();
+    let java = java_bin(app);
+
+    // Write diagnostic info to temp dir (always writable)
+    let log_dir = std::env::temp_dir();
+    let log_path = log_dir.join("routerclaude-backend-launch.log");
+    let _ = std::fs::write(&log_path, format!(
+        "jar: {}\njar.exists: {}\njava: {}\njava.exists: {}\nexe: {:?}\nresource_dir: {:?}\napp_data_dir: {:?}\n",
+        jar.display(), jar.exists(), java.display(), java.exists(),
+        std::env::current_exe(), app.path().resource_dir(), app.path().app_data_dir()
+    ));
 
     if !jar.exists() {
         eprintln!(
             "Backend JAR not found at {}. Run `pnpm backend:build` first.",
             jar.display()
         );
+        let _ = std::fs::write(&log_path, format!("ERROR: JAR not found at {}\n", jar.display()));
         return None;
     }
+
+    // Redirect backend stderr to log file for debugging
+    let stderr_file = std::fs::File::create(log_dir.join("routerclaude-backend-stderr.log")).ok();
 
     let mut cmd = Command::new(java);
     cmd.arg("-jar")
         .arg(&jar)
         .arg(format!("--server.port={}", BACKEND_PORT))
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdout(Stdio::null());
+    match stderr_file {
+        Some(f) => { cmd.stderr(Stdio::from(f)); }
+        None => { cmd.stderr(Stdio::null()); }
+    }
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -194,6 +224,13 @@ fn kill_process_on_port(port: u16) {
 }
 
 fn main() {
+    // Early diagnostic log in temp dir (always writable)
+    let tmp_log = std::env::temp_dir().join("routerclaude-debug.log");
+    let _ = std::fs::write(&tmp_log, format!(
+        "RouterClaude starting...\nexe: {:?}\n",
+        std::env::current_exe()
+    ));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

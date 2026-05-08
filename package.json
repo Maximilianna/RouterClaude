@@ -11,7 +11,9 @@
     "test": "vitest run",
     "backend:build": "cd backend && mvn package -q -DskipTests",
     "backend:dev": "cd backend && mvn spring-boot:run",
-    "dev:full": "pnpm backend:build && pnpm tauri dev"
+    "backend:jlink": "jlink --no-header-files --no-man-pages --strip-debug --compress=zip-6 --add-modules java.base,java.logging,java.xml,java.sql,java.naming,java.management,java.desktop,java.net.http,java.security.jgss,java.instrument,jdk.unsupported,jdk.httpserver --output backend/target/jre",
+    "dev:full": "pnpm backend:build && pnpm tauri dev",
+    "build:release": "pnpm backend:build && pnpm backend:jlink && pnpm tauri build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

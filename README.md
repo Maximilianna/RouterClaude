@@ -239,18 +239,30 @@ pnpm test
 
 ## 生产构建
 
+一键构建（推荐）：
+
 ```bash
-# 构建后端 JAR
+pnpm build:release
+```
+
+这会依次执行：构建后端 JAR → 裁剪 JRE → 打包 MSI。
+
+手动分步构建：
+
+```bash
+# 1. 构建后端 JAR
 cd backend && mvn package -DskipTests
 
-# （可选）jlink 裁剪最小 JRE（约 40MB）
-cd backend && mvn package -Pjlink -DskipTests
+# 2. 裁剪最小 JRE（约 50MB，集成到安装包中，用户无需安装 Java）
+jlink --no-header-files --no-man-pages --strip-debug --compress=zip-6 \
+  --add-modules java.base,java.logging,java.xml,java.sql,java.naming,java.management,java.desktop,java.net.http,java.security.jgss,java.instrument,jdk.unsupported,jdk.httpserver \
+  --output backend/target/jre
 
-# 构建安装包（.msi / .dmg / .AppImage）
+# 3. 构建安装包（.msi）
 cd .. && pnpm tauri build
 ```
 
-安装包内包含 React 前端静态资源、Spring Boot 后端 JAR、（可选）jlink 裁剪后的 JRE、Tauri 运行时。
+安装包内包含 React 前端静态资源、Spring Boot 后端 JAR、裁剪后的 JRE（~50MB）、Tauri 运行时。用户无需安装 Java 即可使用。
 
 ---
 
