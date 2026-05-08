@@ -1,10 +1,11 @@
 package com.routerclaude.controller;
 
-import com.routerclaude.model.Provider;
-import com.routerclaude.model.ProviderConfig;
+import com.routerclaude.model.cli.ClaudeCliConfig;
+import com.routerclaude.model.cli.ClaudeCliProvider;
+import com.routerclaude.service.ClaudeCliService;
+import com.routerclaude.service.ClaudeCliServiceInterface;
 import com.routerclaude.service.ModelDiscoverService;
 import com.routerclaude.service.ProviderService;
-import com.routerclaude.service.ProviderServiceInterface;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,60 +18,55 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/providers")
-public class ProviderController {
+@RequestMapping("/api/claude-cli")
+public class ClaudeCliController {
 
-    private final ProviderServiceInterface providerService;
+    private final ClaudeCliServiceInterface cliService;
     private final ModelDiscoverService discoverService;
 
-    public ProviderController() {
-        this.providerService = new com.routerclaude.service.ProviderService();
+    public ClaudeCliController() {
+        this.cliService = new ClaudeCliService();
         this.discoverService = new ModelDiscoverService();
     }
 
     // Constructor for dependency injection (testing)
-    ProviderController(ProviderServiceInterface providerService) {
-        this.providerService = providerService;
-        this.discoverService = new ModelDiscoverService();
-    }
-
-    ProviderController(ProviderServiceInterface providerService, ModelDiscoverService discoverService) {
-        this.providerService = providerService;
+    ClaudeCliController(ClaudeCliServiceInterface cliService, ModelDiscoverService discoverService) {
+        this.cliService = cliService;
         this.discoverService = discoverService;
     }
 
     @GetMapping
-    public List<Provider> listProviders() throws IOException {
-        return providerService.listProviders();
+    public List<ClaudeCliProvider> listProviders() throws IOException {
+        return cliService.listProviders();
     }
 
     @PostMapping
-    public ResponseEntity<Provider> createProvider(@RequestBody ProviderConfig config) throws IOException {
-        Provider created = providerService.createProvider(config);
+    public ResponseEntity<ClaudeCliProvider> createProvider(@RequestBody ClaudeCliConfig config) throws IOException {
+        ClaudeCliProvider created = cliService.createProvider(config);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateProvider(@PathVariable String id, @RequestBody ProviderConfig config) throws IOException {
-        providerService.updateProvider(id, config);
+    public ResponseEntity<Void> updateProvider(@PathVariable String id, @RequestBody ClaudeCliConfig config) throws IOException {
+        cliService.updateProvider(id, config);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProvider(@PathVariable String id) throws IOException {
-        providerService.deleteProvider(id);
+        cliService.deleteProvider(id);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/{id}/toggle")
     public ResponseEntity<Void> toggleProvider(@PathVariable String id, @RequestParam boolean enabled) throws IOException {
-        providerService.toggleProvider(id, enabled);
+        cliService.toggleProvider(id, enabled);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Provider> getProvider(@PathVariable String id) throws IOException {
-        Provider provider = providerService.getProvider(id);
+    public ResponseEntity<ClaudeCliProvider> getProvider(@PathVariable String id) throws IOException {
+        ClaudeCliProvider provider = cliService.getProvider(id);
         if (provider == null) {
             return ResponseEntity.notFound().build();
         }
@@ -78,8 +74,8 @@ public class ProviderController {
     }
 
     @GetMapping("/active")
-    public ResponseEntity<Provider> getActiveProvider() throws IOException {
-        Provider active = providerService.getActiveProvider();
+    public ResponseEntity<ClaudeCliProvider> getActiveProvider() throws IOException {
+        ClaudeCliProvider active = cliService.getActiveProvider();
         if (active == null) {
             return ResponseEntity.ok().build();
         }
@@ -89,35 +85,35 @@ public class ProviderController {
     @PostMapping("/{id}/test")
     public ResponseEntity<ProviderService.TestResult> testConnection(@PathVariable String id) throws IOException {
         try {
-            ProviderService.TestResult result = providerService.testConnection(id);
+            ProviderService.TestResult result = cliService.testConnection(id);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.ok(new ProviderService.TestResult(false, e.getMessage(), -1));
         }
     }
 
-    @PostMapping("/reorder")
-    public ResponseEntity<Void> reorderProviders(@RequestBody List<String> ids) throws IOException {
-        providerService.reorderProviders(ids);
-        return ResponseEntity.ok().build();
-    }
-
     @PostMapping("/discover")
     public ResponseEntity<Map<String, Object>> discoverModels(@RequestBody Map<String, String> body) {
         try {
-            String apiUrl = body.get("apiUrl");
-            String apiKey = body.get("apiKey");
+            String baseUrl = body.get("baseUrl");
+            String authToken = body.get("authToken");
             String apiMode = body.get("apiMode");
-            List<String> models = discoverService.discoverModels(apiUrl, apiKey, apiMode);
+            List<String> models = discoverService.discoverModels(baseUrl, authToken, apiMode);
             return ResponseEntity.ok(Map.of("models", models));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
+    @PostMapping("/reorder")
+    public ResponseEntity<Void> reorderProviders(@RequestBody List<String> ids) throws IOException {
+        cliService.reorderProviders(ids);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/export")
     public ResponseEntity<Map<String, Object>> exportProviders() throws IOException {
-        List<Map<String, Object>> providers = providerService.exportProviders();
+        List<Map<String, Object>> providers = cliService.exportProviders();
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("version", "1.0");
         result.put("exportedAt", java.time.Instant.now().toString());
@@ -131,7 +127,7 @@ public class ProviderController {
     public ResponseEntity<Map<String, Object>> importProviders(@RequestBody Map<String, Object> body) throws IOException {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> providers = (List<Map<String, Object>>) body.get("providers");
-        Map<String, Object> result = providerService.importProviders(providers);
+        Map<String, Object> result = cliService.importProviders(providers);
         return ResponseEntity.ok(result);
     }
 }

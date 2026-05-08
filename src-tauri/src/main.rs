@@ -30,10 +30,10 @@ fn jar_path(app: &tauri::AppHandle) -> PathBuf {
             .unwrap()
             .join("backend")
             .join("target")
-            .join("routerclaude-backend-1.1.0.jar")
+            .join("routerclaude-backend-1.2.0.jar")
     } else {
         // Prod: try resource_dir, then exe parent dir
-        let jar_name = "routerclaude-backend-1.1.0.jar";
+        let jar_name = "routerclaude-backend-1.2.0.jar";
 
         if let Ok(dir) = app.path().resource_dir() {
             let p = dir.join(jar_name);

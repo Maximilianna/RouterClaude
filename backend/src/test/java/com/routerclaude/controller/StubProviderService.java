@@ -8,6 +8,7 @@ import com.routerclaude.service.ServiceException;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * In-memory stub for ProviderServiceInterface, used in controller tests.
@@ -113,5 +114,40 @@ class StubProviderService implements ProviderServiceInterface {
         for (Provider p : reordered) {
             store.put(p.getId(), p);
         }
+    }
+
+    @Override
+    public List<Map<String, Object>> exportProviders() {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Provider p : store.values()) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("name", p.getName());
+            map.put("apiUrl", p.getApiUrl());
+            map.put("apiKey", p.getApiKey());
+            map.put("apiMode", p.getApiMode());
+            map.put("models", p.getModels());
+            result.add(map);
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> importProviders(List<Map<String, Object>> providers) {
+        int imported = 0;
+        int skipped = 0;
+        for (Map<String, Object> item : providers) {
+            String name = (String) item.get("name");
+            if (name == null || name.isBlank() || store.values().stream().anyMatch(p -> p.getName().equals(name))) {
+                skipped++;
+                continue;
+            }
+            ProviderConfig config = new ProviderConfig();
+            config.setName(name);
+            config.setApiUrl((String) item.get("apiUrl"));
+            config.setApiKey((String) item.get("apiKey"));
+            createProvider(config);
+            imported++;
+        }
+        return Map.of("imported", imported, "skipped", skipped, "names", List.of());
     }
 }

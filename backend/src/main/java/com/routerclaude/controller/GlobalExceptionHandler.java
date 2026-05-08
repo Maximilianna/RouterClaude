@@ -17,6 +17,7 @@ public class GlobalExceptionHandler {
         HttpStatus status;
         switch (e.getMessage()) {
             case "PROVIDER_NOT_FOUND":
+            case "CLI_PROVIDER_NOT_FOUND":
                 status = HttpStatus.NOT_FOUND;
                 break;
             default:

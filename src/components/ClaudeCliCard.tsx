@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Provider } from "../types/provider";
-import type { TestResult } from "../hooks/useProviders";
+import type { ClaudeCliProvider } from "../types/claudeCli";
+import type { TestResult } from "../hooks/useClaudeCli";
 import { getTagColor } from "../utils/tagColors";
 
 interface Props {
-  provider: Provider;
+  provider: ClaudeCliProvider;
   onToggle: (enabled: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -15,7 +15,7 @@ interface Props {
   toggling?: boolean;
 }
 
-export default function ProviderCard({
+export default function ClaudeCliCard({
   provider,
   onToggle,
   onEdit,
@@ -130,7 +130,7 @@ export default function ProviderCard({
           </button>
         </div>
       </div>
-      <p className="text-xs text-gray-400 truncate mb-3 font-mono">{provider.apiUrl}</p>
+      <p className="text-xs text-gray-400 truncate mb-3 font-mono">{provider.baseUrl}</p>
       {provider.proxyToken && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded bg-green-50 text-green-600 border border-green-100 font-mono">
@@ -153,21 +153,48 @@ export default function ProviderCard({
           })}
         </div>
       )}
-      {provider.models.length > 0 && (
+      {(provider.defaultModel || provider.defaultSonnetModel || provider.defaultOpusModel || provider.defaultHaikuModel) && (
         <div className="flex flex-wrap gap-1.5">
-          {provider.models.map((m) => (
-            <span
-              key={m.name}
-              className="inline-flex items-center bg-gray-50 text-xs px-2.5 py-1 rounded-lg text-gray-600 border border-gray-100"
-            >
-              {m.name}
-              {m.supports1m && (
+          {provider.defaultModel && (
+            <span className="inline-flex items-center bg-gray-50 text-xs px-2.5 py-1 rounded-lg text-gray-600 border border-gray-100">
+              {provider.defaultModel}
+              {provider.defaultModel1m && (
                 <span className="ml-1.5 text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
-                  {t("provider.1m_context")}
+                  1M
                 </span>
               )}
             </span>
-          ))}
+          )}
+          {provider.defaultSonnetModel && (
+            <span className="inline-flex items-center bg-gray-50 text-xs px-2.5 py-1 rounded-lg text-gray-600 border border-gray-100">
+              Sonnet: {provider.defaultSonnetModel}
+              {provider.defaultSonnetModel1m && (
+                <span className="ml-1.5 text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
+                  1M
+                </span>
+              )}
+            </span>
+          )}
+          {provider.defaultOpusModel && (
+            <span className="inline-flex items-center bg-gray-50 text-xs px-2.5 py-1 rounded-lg text-gray-600 border border-gray-100">
+              Opus: {provider.defaultOpusModel}
+              {provider.defaultOpusModel1m && (
+                <span className="ml-1.5 text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
+                  1M
+                </span>
+              )}
+            </span>
+          )}
+          {provider.defaultHaikuModel && (
+            <span className="inline-flex items-center bg-gray-50 text-xs px-2.5 py-1 rounded-lg text-gray-600 border border-gray-100">
+              Haiku: {provider.defaultHaikuModel}
+              {provider.defaultHaikuModel1m && (
+                <span className="ml-1.5 text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">
+                  1M
+                </span>
+              )}
+            </span>
+          )}
         </div>
       )}
     </div>

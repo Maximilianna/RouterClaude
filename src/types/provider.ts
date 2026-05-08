@@ -12,6 +12,7 @@ export interface Provider {
   enabled: boolean;
   apiMode?: "openai" | "anthropic";
   tags?: string[];
+  proxyToken?: string;
 }
 
 export interface ProviderConfig {
@@ -21,6 +22,7 @@ export interface ProviderConfig {
   models: Model[];
   apiMode?: "openai" | "anthropic";
   tags?: string[];
+  proxyToken?: string;
 }
 
 export interface DiscoverResult {

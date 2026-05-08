@@ -9,6 +9,7 @@ public class ProviderConfig {
     private List<Model> models;
     private String apiMode;
     private List<String> tags;
+    private String proxyToken;
 
     public ProviderConfig() {}
 
@@ -24,4 +25,6 @@ public class ProviderConfig {
     public void setApiMode(String apiMode) { this.apiMode = apiMode; }
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }
+    public String getProxyToken() { return proxyToken; }
+    public void setProxyToken(String proxyToken) { this.proxyToken = proxyToken; }
 }

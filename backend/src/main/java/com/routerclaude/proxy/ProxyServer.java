@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.routerclaude.config.ClaudeCliConfigIO;
 import com.routerclaude.config.DataStore;
 import com.routerclaude.config.MetaConfig;
 import com.routerclaude.config.ProviderConfigIO;
+import com.routerclaude.config.SettingsStore;
 import com.routerclaude.model.Provider;
 import com.routerclaude.model.UsageRecord;
+import com.routerclaude.model.cli.ClaudeCliProvider;
 import com.routerclaude.service.UsageService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -25,8 +28,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,7 +54,9 @@ public class ProxyServer {
 
     private HttpServer server;
     private final ProviderConfigIO providerConfigIO = new ProviderConfigIO();
+    private final ClaudeCliConfigIO cliConfigIO = new ClaudeCliConfigIO();
     private final MetaConfig metaConfig = new MetaConfig();
+    private final SettingsStore settingsStore = new SettingsStore();
     private final UsageService usageService;
 
     private static final int MAX_LOGS = 500;
@@ -58,6 +65,10 @@ public class ProxyServer {
     private final AtomicLong totalRequests = new AtomicLong(0);
     private final AtomicLong errorRequests = new AtomicLong(0);
     private volatile String startupError = null;
+
+    private record CacheEntry(byte[] body, int statusCode, long expireAt) {}
+    private record NonStreamingResult(byte[] body, int statusCode) {}
+    private final ConcurrentHashMap<String, CacheEntry> responseCache = new ConcurrentHashMap<>();
 
     @Autowired
     public ProxyServer(UsageService usageService) {
@@ -74,9 +85,15 @@ public class ProxyServer {
     public void start() {
         // Load persisted logs
         List<ProxyLogEntry> persisted = logStore.load();
+        long total = 0;
+        long errors = 0;
         for (ProxyLogEntry entry : persisted) {
             logs.addLast(entry);
+            total++;
+            if (entry.isError()) errors++;
         }
+        totalRequests.set(total);
+        errorRequests.set(errors);
         if (!persisted.isEmpty()) {
             log.info("Loaded {} persisted proxy logs", persisted.size());
         }
@@ -131,7 +148,19 @@ public class ProxyServer {
             String ccdModelName = modelNode.asText();
             modelName = ccdModelName;
 
-            Provider provider = findProviderForModel(ccdModelName);
+            // Try proxy token auth first, fall back to model-based lookup
+            String proxyToken = extractProxyToken(exchange);
+            Provider provider = null;
+            if (proxyToken != null) {
+                provider = findProviderByToken(proxyToken);
+                if (provider == null) {
+                    respond(exchange, 401, "{\"error\":\"代理 Token 无效\"}");
+                    return;
+                }
+            }
+            if (provider == null) {
+                provider = findProviderForModel(ccdModelName);
+            }
             if (provider == null) {
                 respond(exchange, 404, "{\"error\":\"模型未找到或供应商未配置\"}");
                 return;
@@ -156,14 +185,43 @@ public class ProxyServer {
 
             boolean isStreaming = root.has("stream") && root.get("stream").asBoolean(false);
 
+            reqBuilder.POST(HttpRequest.BodyPublishers.ofString(modifiedBody));
+
             if (isStreaming) {
-                reqBuilder.POST(HttpRequest.BodyPublishers.ofString(modifiedBody));
-                statusCode = handleStreamingResponse(exchange, reqBuilder, actualModelName, providerName);
+                statusCode = handleStreamingWithRetry(exchange, reqBuilder, actualModelName, providerName);
                 isError = statusCode < 200 || statusCode >= 400;
             } else {
-                reqBuilder.POST(HttpRequest.BodyPublishers.ofString(modifiedBody));
-                statusCode = handleNonStreamingResponse(exchange, reqBuilder, actualModelName, providerName);
+                // Check cache for non-streaming requests
+                String cacheKey = null;
+                if (isCacheEnabled()) {
+                    cacheKey = computeCacheKey(modifiedBody);
+                    CacheEntry cached = getFromCache(cacheKey);
+                    if (cached != null) {
+                        exchange.getResponseHeaders().set("Content-Type", "application/json");
+                        exchange.getResponseHeaders().set("X-Cache", "HIT");
+                        exchange.sendResponseHeaders(cached.statusCode(), cached.body().length);
+                        exchange.getResponseBody().write(cached.body());
+                        exchange.getResponseBody().close();
+                        statusCode = cached.statusCode();
+                        isError = false;
+                        return;
+                    }
+                }
+
+                NonStreamingResult result = handleNonStreamingWithRetry(reqBuilder, actualModelName, providerName);
+                statusCode = result.statusCode();
                 isError = statusCode < 200 || statusCode >= 400;
+
+                // Store in cache if successful
+                if (isCacheEnabled() && cacheKey != null && statusCode >= 200 && statusCode < 300) {
+                    putToCache(cacheKey, result.body(), result.statusCode());
+                    exchange.getResponseHeaders().set("X-Cache", "MISS");
+                }
+
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(result.statusCode(), result.body().length);
+                exchange.getResponseBody().write(result.body());
+                exchange.getResponseBody().close();
             }
 
         } catch (Exception e) {
@@ -179,18 +237,183 @@ public class ProxyServer {
         }
     }
 
-    private int handleStreamingResponse(HttpExchange exchange, HttpRequest.Builder reqBuilder,
-                                         String modelName, String providerName) throws Exception {
-        HttpResponse<java.io.InputStream> response = httpClient.send(
-                reqBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
+    private boolean isRetryable(int statusCode) {
+        return statusCode >= 500 && statusCode < 600;
+    }
 
+    private int getMaxRetries() {
+        Object val = settingsStore.load().get("retryMaxAttempts");
+        if (val instanceof Number n) return n.intValue();
+        return 3;
+    }
+
+    private long getRetryDelayMs() {
+        Object val = settingsStore.load().get("retryDelayMs");
+        if (val instanceof Number n) return n.longValue();
+        return 1000;
+    }
+
+    private boolean isCacheEnabled() {
+        Object val = settingsStore.load().get("cacheEnabled");
+        if (val instanceof Boolean b) return b;
+        return true;
+    }
+
+    private long getCacheTtlMs() {
+        Object val = settingsStore.load().get("cacheTtlMs");
+        if (val instanceof Number n) return n.longValue();
+        return 300000;
+    }
+
+    private int getCacheMaxEntries() {
+        Object val = settingsStore.load().get("cacheMaxEntries");
+        if (val instanceof Number n) return n.intValue();
+        return 200;
+    }
+
+    private String computeCacheKey(String body) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(body.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return String.valueOf(body.hashCode());
+        }
+    }
+
+    private CacheEntry getFromCache(String key) {
+        CacheEntry entry = responseCache.get(key);
+        if (entry != null && System.currentTimeMillis() < entry.expireAt()) {
+            return entry;
+        }
+        if (entry != null) {
+            responseCache.remove(key);
+        }
+        return null;
+    }
+
+    private void putToCache(String key, byte[] body, int statusCode) {
+        if (responseCache.size() >= getCacheMaxEntries()) {
+            String eldest = responseCache.keySet().iterator().next();
+            responseCache.remove(eldest);
+        }
+        long ttl = getCacheTtlMs();
+        responseCache.put(key, new CacheEntry(body, statusCode, System.currentTimeMillis() + ttl));
+    }
+
+    private NonStreamingResult handleNonStreamingWithRetry(HttpRequest.Builder reqBuilder,
+                                              String modelName, String providerName) throws Exception {
+        int maxRetries = getMaxRetries();
+        long retryDelayMs = getRetryDelayMs();
+        Exception lastException = null;
+        int lastStatus = 0;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (attempt > 0) {
+                log.info("Retrying non-streaming request (attempt {}/{}) after {}ms, model={}",
+                        attempt, maxRetries, retryDelayMs, modelName);
+                Thread.sleep(retryDelayMs);
+            }
+
+            try {
+                HttpResponse<String> response = httpClient.send(
+                        reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
+
+                int code = response.statusCode();
+                if (!isRetryable(code) || attempt == maxRetries) {
+                    if (usageService != null) {
+                        try {
+                            JsonNode root = mapper.readTree(response.body());
+                            JsonNode usage = root.get("usage");
+                            if (usage != null) {
+                                int prompt = usage.has("prompt_tokens") ? usage.get("prompt_tokens").asInt() : 0;
+                                int completion = usage.has("completion_tokens") ? usage.get("completion_tokens").asInt() : 0;
+                                int total = usage.has("total_tokens") ? usage.get("total_tokens").asInt() : prompt + completion;
+                                usageService.record(new UsageRecord(
+                                        System.currentTimeMillis(), providerName, modelName, prompt, completion, total));
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    byte[] respBytes = response.body().getBytes(StandardCharsets.UTF_8);
+                    return new NonStreamingResult(respBytes, code);
+                }
+
+                lastStatus = code;
+                log.warn("Got retryable status {} for model={}, attempt {}/{}", code, modelName, attempt + 1, maxRetries + 1);
+
+            } catch (java.net.http.HttpTimeoutException e) {
+                lastException = e;
+                log.warn("Request timeout for model={}, attempt {}/{}", modelName, attempt + 1, maxRetries + 1);
+                if (attempt == maxRetries) throw e;
+            } catch (java.net.ConnectException e) {
+                lastException = e;
+                log.warn("Connection failed for model={}, attempt {}/{}", modelName, attempt + 1, maxRetries + 1);
+                if (attempt == maxRetries) throw e;
+            }
+        }
+
+        if (lastException != null) throw lastException;
+        return new NonStreamingResult(new byte[0], lastStatus);
+    }
+
+    private int handleStreamingWithRetry(HttpExchange exchange, HttpRequest.Builder reqBuilder,
+                                          String modelName, String providerName) throws Exception {
+        int maxRetries = getMaxRetries();
+        long retryDelayMs = getRetryDelayMs();
+        Exception lastException = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            if (attempt > 0) {
+                log.info("Retrying streaming request (attempt {}/{}) after {}ms, model={}",
+                        attempt, maxRetries, retryDelayMs, modelName);
+                Thread.sleep(retryDelayMs);
+            }
+
+            try {
+                HttpResponse<java.io.InputStream> response = httpClient.send(
+                        reqBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
+
+                int respStatus = response.statusCode();
+                if (isRetryable(respStatus) && attempt < maxRetries) {
+                    log.warn("Got retryable status {} for streaming model={}, attempt {}/{}",
+                            respStatus, modelName, attempt + 1, maxRetries + 1);
+                    response.body().close();
+                    lastException = null;
+                    continue;
+                }
+
+                // Non-retryable or last attempt — stream to client
+                return streamToClient(exchange, response, modelName, providerName);
+
+            } catch (java.net.http.HttpTimeoutException e) {
+                lastException = e;
+                log.warn("Streaming request timeout for model={}, attempt {}/{}", modelName, attempt + 1, maxRetries + 1);
+                if (attempt == maxRetries) throw e;
+            } catch (java.net.ConnectException e) {
+                lastException = e;
+                log.warn("Streaming connection failed for model={}, attempt {}/{}", modelName, attempt + 1, maxRetries + 1);
+                if (attempt == maxRetries) throw e;
+            }
+        }
+
+        if (lastException != null) throw lastException;
+        return 502;
+    }
+
+    private int streamToClient(HttpExchange exchange, HttpResponse<java.io.InputStream> response,
+                                String modelName, String providerName) throws Exception {
         int respStatus = response.statusCode();
         exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
         exchange.getResponseHeaders().set("Cache-Control", "no-cache");
         exchange.getResponseHeaders().set("Connection", "keep-alive");
         exchange.sendResponseHeaders(respStatus, 0);
 
-        // Buffer for parsing SSE events to extract usage from message_delta
         StringBuilder lineBuf = new StringBuilder();
         StringBuilder dataBuf = new StringBuilder();
         int lastPromptTokens = 0;
@@ -201,11 +424,9 @@ public class ProxyServer {
             byte[] rawBuf = new byte[8192];
             int n;
             while ((n = is.read(rawBuf)) != -1) {
-                // Forward immediately
                 os.write(rawBuf, 0, n);
                 os.flush();
 
-                // Parse SSE lines to extract usage
                 for (int i = 0; i < n; i++) {
                     char c = (char) rawBuf[i];
                     if (c == '\n') {
@@ -215,11 +436,9 @@ public class ProxyServer {
                         if (line.startsWith("data: ")) {
                             dataBuf.append(line.substring(6));
                         } else if (line.isEmpty()) {
-                            // End of SSE event — parse accumulated data
                             if (!dataBuf.isEmpty()) {
                                 try {
                                     JsonNode eventNode = mapper.readTree(dataBuf.toString());
-                                    String type = eventNode.has("type") ? eventNode.get("type").asText() : "";
                                     JsonNode usage = eventNode.get("usage");
                                     if (usage != null) {
                                         if (usage.has("input_tokens")) lastPromptTokens = usage.get("input_tokens").asInt();
@@ -230,7 +449,6 @@ public class ProxyServer {
                                 dataBuf.setLength(0);
                             }
                         } else if (!line.startsWith("event: ")) {
-                            // Continuation of data line
                             dataBuf.append(line);
                         }
                     } else if (c != '\r') {
@@ -240,7 +458,6 @@ public class ProxyServer {
             }
         }
 
-        // Record usage if we extracted tokens
         if (usageService != null && (lastPromptTokens > 0 || lastCompletionTokens > 0)) {
             int total = lastPromptTokens + lastCompletionTokens;
             usageService.record(new UsageRecord(
@@ -249,35 +466,6 @@ public class ProxyServer {
         }
 
         return respStatus;
-    }
-
-    private int handleNonStreamingResponse(HttpExchange exchange, HttpRequest.Builder reqBuilder,
-                                            String modelName, String providerName) throws Exception {
-        HttpResponse<String> response = httpClient.send(
-                reqBuilder.build(), HttpResponse.BodyHandlers.ofString());
-
-        // Extract usage data
-        if (usageService != null) {
-            try {
-                JsonNode root = mapper.readTree(response.body());
-                JsonNode usage = root.get("usage");
-                if (usage != null) {
-                    int prompt = usage.has("prompt_tokens") ? usage.get("prompt_tokens").asInt() : 0;
-                    int completion = usage.has("completion_tokens") ? usage.get("completion_tokens").asInt() : 0;
-                    int total = usage.has("total_tokens") ? usage.get("total_tokens").asInt() : prompt + completion;
-                    usageService.record(new UsageRecord(
-                            System.currentTimeMillis(), providerName, modelName, prompt, completion, total));
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        byte[] respBytes = response.body().getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(response.statusCode(), respBytes.length);
-        exchange.getResponseBody().write(respBytes);
-        exchange.getResponseBody().close();
-        return response.statusCode();
     }
 
     private void handleModels(HttpExchange exchange) {
@@ -313,6 +501,44 @@ public class ProxyServer {
             log.error("Models endpoint error", e);
             respond(exchange, 500, "{\"error\":\"获取模型列表失败\"}");
         }
+    }
+
+    private String extractProxyToken(HttpExchange exchange) {
+        String auth = exchange.getRequestHeaders().getFirst("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            String token = auth.substring(7).trim();
+            if (token.startsWith("rc_")) {
+                return token;
+            }
+        }
+        return null;
+    }
+
+    private Provider findProviderByToken(String proxyToken) throws Exception {
+        // Check CCD providers
+        List<Provider> providers = providerConfigIO.listAll();
+        for (Provider p : providers) {
+            if (proxyToken.equals(p.getProxyToken())) {
+                return p;
+            }
+        }
+        // Check CLI providers
+        try {
+            List<ClaudeCliProvider> cliProviders = cliConfigIO.listAll();
+            for (ClaudeCliProvider cp : cliProviders) {
+                if (proxyToken.equals(cp.getProxyToken())) {
+                    // Convert CLI provider to Provider for proxy forwarding
+                    Provider p = new Provider();
+                    p.setName(cp.getName());
+                    p.setApiUrl(cp.getBaseUrl());
+                    p.setApiKey(cp.getAuthToken());
+                    return p;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check CLI providers: {}", e.getMessage());
+        }
+        return null;
     }
 
     private Provider findProviderForModel(String ccdModelName) throws Exception {

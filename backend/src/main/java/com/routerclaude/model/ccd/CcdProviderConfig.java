@@ -22,6 +22,7 @@ public class CcdProviderConfig {
     private String _providerApiKey;
     private String _providerApiMode;
     private List<String> _providerTags;
+    private String _proxyToken;
 
     public CcdProviderConfig() {}
 
@@ -42,4 +43,6 @@ public class CcdProviderConfig {
     public void set_providerApiMode(String _providerApiMode) { this._providerApiMode = _providerApiMode; }
     public List<String> get_providerTags() { return _providerTags; }
     public void set_providerTags(List<String> _providerTags) { this._providerTags = _providerTags; }
+    public String get_proxyToken() { return _proxyToken; }
+    public void set_proxyToken(String _proxyToken) { this._proxyToken = _proxyToken; }
 }

@@ -1,16 +1,301 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUsageSummary, useUsageDetails } from "../hooks/useProviders";
 
 type Period = "today" | "week" | "month";
 
+const PIE_COLORS = [
+  "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e",
+  "#f97316", "#eab308", "#22c55e", "#14b8a6", "#06b6d4",
+];
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return n.toString();
+}
+
+function DonutChart({ entries, total }: { entries: [string, number][]; total: number }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const size = 180;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = 80;
+  const innerR = 50;
+
+  let cumAngle = -Math.PI / 2;
+  const slices = entries.map(([name, value], i) => {
+    const fraction = total > 0 ? value / total : 0;
+    const angle = fraction * 2 * Math.PI;
+    const startAngle = cumAngle;
+    const endAngle = cumAngle + angle;
+    cumAngle = endAngle;
+
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const x1o = cx + outerR * Math.cos(startAngle);
+    const y1o = cy + outerR * Math.sin(startAngle);
+    const x2o = cx + outerR * Math.cos(endAngle);
+    const y2o = cy + outerR * Math.sin(endAngle);
+    const x1i = cx + innerR * Math.cos(endAngle);
+    const y1i = cy + innerR * Math.sin(endAngle);
+    const x2i = cx + innerR * Math.cos(startAngle);
+    const y2i = cy + innerR * Math.sin(startAngle);
+
+    const d = fraction > 0.001
+      ? `M ${x1o} ${y1o} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2o} ${y2o} L ${x1i} ${y1i} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x2i} ${y2i} Z`
+      : "";
+
+    return { name, value, fraction, d, color: PIE_COLORS[i % PIE_COLORS.length] };
+  });
+
+  const hoveredSlice = hovered !== null ? slices[hovered] : null;
+
+  return (
+    <div className="flex items-center gap-6">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {slices.map((s, i) => s.d && (
+            <path
+              key={i}
+              d={s.d}
+              fill={s.color}
+              opacity={hovered !== null && hovered !== i ? 0.4 : 1}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              className="cursor-pointer transition-opacity duration-150"
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          {hoveredSlice ? (
+            <>
+              <span className="text-[11px] text-gray-500 max-w-[80px] truncate text-center">{hoveredSlice.name}</span>
+              <span className="text-sm font-bold font-mono text-gray-900">{(hoveredSlice.fraction * 100).toFixed(1)}%</span>
+              <span className="text-[10px] font-mono text-gray-400">{formatTokens(hoveredSlice.value)}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-lg font-bold font-mono text-gray-900">{formatTokens(total)}</span>
+              <span className="text-[10px] text-gray-400">Total</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex-1 space-y-1.5">
+        {slices.map((s, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 text-xs cursor-pointer"
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: s.color }} />
+            <span className={`flex-1 truncate ${hovered === i ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+              {s.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function TrendLine({ details, period }: { details: { timestamp: number; promptTokens: number; completionTokens: number }[]; period: Period }) {
+  const { t } = useTranslation();
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  const buckets = useMemo(() => {
+    const now = new Date();
+    let startTs: number;
+    let bucketCount: number;
+    let bucketMs: number;
+    let labels: string[];
+
+    if (period === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startTs = start.getTime();
+      bucketCount = 24;
+      bucketMs = 3600_000;
+      labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+    } else if (period === "week") {
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+      startTs = monday.getTime();
+      bucketCount = 7;
+      bucketMs = 86400_000;
+      const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      labels = dayLabels.map((d, i) => {
+        const date = new Date(monday.getTime() + i * 86400_000);
+        return `${d} ${date.getDate()}/${date.getMonth() + 1}`;
+      });
+    } else {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      startTs = firstDay.getTime();
+      bucketCount = getDaysInMonth(now.getFullYear(), now.getMonth());
+      bucketMs = 86400_000;
+      labels = Array.from({ length: bucketCount }, (_, i) => `${i + 1}`);
+    }
+
+    const result: { ts: number; prompt: number; completion: number; label: string }[] = Array.from(
+      { length: bucketCount },
+      (_, i) => ({ ts: startTs + i * bucketMs, prompt: 0, completion: 0, label: labels[i] })
+    );
+
+    for (const d of details) {
+      const idx = Math.floor((d.timestamp - startTs) / bucketMs);
+      if (idx >= 0 && idx < bucketCount) {
+        result[idx].prompt += d.promptTokens;
+        result[idx].completion += d.completionTokens;
+      }
+    }
+    return result;
+  }, [details, period]);
+
+  if (buckets.length === 0) return null;
+
+  const w = 600;
+  const h = 180;
+  const padL = 50;
+  const padR = 16;
+  const padT = 12;
+  const padB = 36;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const totals = buckets.map((b) => b.prompt + b.completion);
+  const maxVal = Math.max(...totals, 1);
+
+  const points = buckets.map((b, i) => {
+    const x = buckets.length === 1 ? padL + chartW / 2 : padL + (i / (buckets.length - 1)) * chartW;
+    const total = b.prompt + b.completion;
+    const y = padT + chartH - (total / maxVal) * chartH;
+    return { x, y, ...b, total };
+  });
+
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const areaPath = linePath + ` L ${points[points.length - 1].x} ${padT + chartH} L ${points[0].x} ${padT + chartH} Z`;
+
+  const promptLine = points.map((p, i) => {
+    const y = padT + chartH - (p.prompt / maxVal) * chartH;
+    return `${i === 0 ? "M" : "L"} ${p.x} ${y}`;
+  }).join(" ");
+
+  const compLine = points.map((p, i) => {
+    const y = padT + chartH - (p.completion / maxVal) * chartH;
+    return `${i === 0 ? "M" : "L"} ${p.x} ${y}`;
+  }).join(" ");
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((frac) => ({
+    y: padT + chartH - frac * chartH,
+    label: formatTokens(maxVal * frac),
+  }));
+
+  const hoveredPt = hovered !== null ? points[hovered] : null;
+
+  return (
+    <div className="relative">
+      <svg
+        width="100%"
+        viewBox={`0 0 ${w} ${h}`}
+        className="overflow-visible"
+        onMouseLeave={() => setHovered(null)}
+      >
+        {gridLines.map((g, i) => (
+          <g key={i}>
+            <line x1={padL} y1={g.y} x2={w - padR} y2={g.y} stroke="#f3f4f6" strokeWidth={1} />
+            <text x={padL - 8} y={g.y + 4} textAnchor="end" className="fill-gray-300" fontSize={10} fontFamily="monospace">
+              {g.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Y-axis label */}
+        <text x={12} y={padT + chartH / 2} textAnchor="middle" className="fill-gray-400" fontSize={10} transform={`rotate(-90, 12, ${padT + chartH / 2})`}>
+          Tokens
+        </text>
+
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#areaGrad)" />
+        <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={promptLine} fill="none" stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 3" strokeLinejoin="round" opacity={0.7} />
+        <path d={compLine} fill="none" stroke="#818cf8" strokeWidth={1.5} strokeDasharray="4 3" strokeLinejoin="round" opacity={0.7} />
+
+        {points.map((p, i) => (
+          <rect
+            key={i}
+            x={p.x - (chartW / buckets.length / 2)}
+            y={padT}
+            width={chartW / buckets.length}
+            height={chartH}
+            fill="transparent"
+            onMouseEnter={() => setHovered(i)}
+            className="cursor-crosshair"
+          />
+        ))}
+
+        {hoveredPt && (
+          <>
+            <line x1={hoveredPt.x} y1={padT} x2={hoveredPt.x} y2={padT + chartH} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />
+            <circle cx={hoveredPt.x} cy={hoveredPt.y} r={4} fill="#3b82f6" stroke="white" strokeWidth={2} />
+          </>
+        )}
+
+        {points.map((p, i) => {
+          const step = period === "today" ? 3 : period === "month" ? Math.ceil(buckets.length / 10) : 1;
+          if (i % step === 0 || i === buckets.length - 1) {
+            return (
+              <text key={i} x={p.x} y={padT + chartH + 16} textAnchor="middle" className="fill-gray-300" fontSize={9} fontFamily="monospace">
+                {p.label}
+              </text>
+            );
+          }
+          return null;
+        })}
+
+        {/* X-axis label */}
+        <text x={padL + chartW / 2} y={h - 2} textAnchor="middle" className="fill-gray-400" fontSize={10}>
+          {t("usage.time")}
+        </text>
+      </svg>
+
+      {hoveredPt && (
+        <div className="absolute top-0 left-0 pointer-events-none" style={{ transform: `translate(${hoveredPt.x + 8}px, ${hoveredPt.y - 10}px)` }}>
+          <div className="bg-white/95 backdrop-blur border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap">
+            <div className="font-mono text-gray-900 font-medium">{formatTokens(hoveredPt.total)} tokens</div>
+            <div className="text-gray-400 mt-0.5">
+              <span className="text-blue-500">{formatTokens(hoveredPt.prompt)}</span> prompt +{" "}
+              <span className="text-indigo-500">{formatTokens(hoveredPt.completion)}</span> completion
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-center gap-5 mt-2 text-[11px] text-gray-400">
+        <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-blue-500 rounded" /> Total</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-blue-400 rounded" style={{ borderTop: "1.5px dashed #60a5fa", height: 0 }} /> Prompt</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-indigo-400 rounded" style={{ borderTop: "1.5px dashed #818cf8", height: 0 }} /> Completion</span>
+      </div>
+    </div>
+  );
+}
+
 export default function UsagePanel() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [period, setPeriod] = useState<Period>("today");
   const { data: summary, isFetching: fetchingSummary } = useUsageSummary(period);
-  const { data: details = [], isFetching: fetchingDetails } = useUsageDetails(50);
+  const { data: details = [], isFetching: fetchingDetails } = useUsageDetails(200);
 
   function handleRefresh() {
     qc.invalidateQueries({ queryKey: ["usage"] });
@@ -18,12 +303,12 @@ export default function UsagePanel() {
 
   const providerEntries = Object.entries(summary?.byProvider ?? {}).sort((a, b) => b[1] - a[1]);
   const modelEntries = Object.entries(summary?.byModel ?? {}).sort((a, b) => b[1] - a[1]);
-  const maxProvider = providerEntries[0]?.[1] ?? 1;
-  const maxModel = modelEntries[0]?.[1] ?? 1;
 
   function formatTime(ts: number) {
     return new Date(ts).toLocaleTimeString();
   }
+
+  const isFetching = fetchingSummary || fetchingDetails;
 
   return (
     <div className="space-y-6">
@@ -43,12 +328,12 @@ export default function UsagePanel() {
         ))}
         <button
           onClick={handleRefresh}
-          disabled={fetchingSummary || fetchingDetails}
+          disabled={isFetching}
           className="ml-auto p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           title={t("common.refresh")}
         >
           <svg
-            className={`h-4 w-4 ${fetchingSummary || fetchingDetails ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -59,7 +344,7 @@ export default function UsagePanel() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
           <p className="text-3xl font-bold text-gray-900 font-mono">
             {(summary?.totalTokens ?? 0).toLocaleString()}
@@ -78,6 +363,12 @@ export default function UsagePanel() {
           </p>
           <p className="text-sm text-gray-400 mt-1">{t("usage.completion_tokens")}</p>
         </div>
+        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80 text-center">
+          <p className="text-3xl font-bold text-emerald-600 font-mono">
+            {(summary?.requestCount ?? 0).toLocaleString()}
+          </p>
+          <p className="text-sm text-gray-400 mt-1">{t("usage.request_count")}</p>
+        </div>
       </div>
 
       {providerEntries.length === 0 && modelEntries.length === 0 && details.length === 0 && (
@@ -86,49 +377,28 @@ export default function UsagePanel() {
         </div>
       )}
 
-      {providerEntries.length > 0 && (
+      {details.length > 0 && (
         <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
-          <h3 className="font-semibold text-gray-900 mb-4">{t("usage.by_provider")}</h3>
-          <div className="space-y-3">
-            {providerEntries.map(([name, tokens]) => (
-              <div key={name} className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 w-28 truncate">{name}</span>
-                <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
-                    style={{ width: `${(tokens / maxProvider) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono text-gray-500 w-20 text-right">
-                  {tokens.toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
+          <h3 className="font-semibold text-gray-900 mb-4">{t("usage.trend")}</h3>
+          <TrendLine details={details} period={period} />
         </div>
       )}
 
-      {modelEntries.length > 0 && (
-        <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
-          <h3 className="font-semibold text-gray-900 mb-4">{t("usage.by_model")}</h3>
-          <div className="space-y-3">
-            {modelEntries.slice(0, 10).map(([name, tokens]) => (
-              <div key={name} className="flex items-center gap-3">
-                <span className="text-sm text-gray-600 w-40 truncate font-mono">{name}</span>
-                <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
-                    style={{ width: `${(tokens / maxModel) * 100}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono text-gray-500 w-20 text-right">
-                  {tokens.toLocaleString()}
-                </span>
-              </div>
-            ))}
+      <div className="grid grid-cols-2 gap-4">
+        {providerEntries.length > 0 && (
+          <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
+            <h3 className="font-semibold text-gray-900 mb-4">{t("usage.provider_ratio")}</h3>
+            <DonutChart entries={providerEntries} total={summary?.totalTokens ?? 0} />
           </div>
-        </div>
-      )}
+        )}
+
+        {modelEntries.length > 0 && (
+          <div className="border border-gray-100 rounded-2xl p-5 bg-white/80">
+            <h3 className="font-semibold text-gray-900 mb-4">{t("usage.model_ratio")}</h3>
+            <DonutChart entries={modelEntries.slice(0, 8)} total={summary?.totalTokens ?? 0} />
+          </div>
+        )}
+      </div>
 
       {details.length > 0 && (
         <div className="border border-gray-100 rounded-2xl bg-white/80 overflow-hidden">

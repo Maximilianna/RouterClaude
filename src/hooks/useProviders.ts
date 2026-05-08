@@ -190,3 +190,39 @@ export function useUsageDetails(limit = 50) {
     queryFn: () => request<UsageRecord[]>(`${USAGE_API}/details?limit=${limit}`),
   });
 }
+
+export interface ExportData {
+  version: string;
+  exportedAt: string;
+  providers: ProviderConfig[];
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  names: string[];
+}
+
+export function useExportProviders() {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API}/export`);
+      if (!res.ok) throw new Error("EXPORT_FAILED");
+      return res.json() as Promise<ExportData>;
+    },
+  });
+}
+
+export function useImportProviders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ExportData) =>
+      request<ImportResult>(`${API}/import`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["providers"] });
+    },
+  });
+}

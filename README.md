@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>Claude Code Desktop 模型供应商配置管理工具 · 内置本地代理转发</b>
+  <b>AI 模型供应商配置管理工具 · 支持 CCD & CC CLI · 内置本地代理转发</b>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
 </p>
 <p align="center">
-  <i>可视化管理 Claude Code Desktop 模型供应商配置 · 自动去除 <code>claude-</code> 前缀转发 · 全本地运行</i>
+  <i>可视化管理 CCD &amp; Claude Code CLI 模型供应商配置 · 自动去除 <code>claude-</code> 前缀转发 · 全本地运行</i>
 </p>
 
 
@@ -34,7 +34,7 @@ RouterClaude 就是为了解决这个错位而生：
 2. **自动去除前缀** — 代理剥离 `claude-`，还原为 `DeepSeek-V4-Flash`
 3. **转发到真实供应商** — 使用正确的模型名调用供应商 API
 
-同时提供可视化界面管理多个供应商配置，一键切换 CCD 使用的模型。
+同时提供可视化界面管理多个供应商配置，一键切换 CCD 使用的模型。v1.2.0 起还支持 **Claude Code CLI** 的供应商配置管理，与 CCD 配置隔离。
 
 ---
 
@@ -43,18 +43,38 @@ RouterClaude 就是为了解决这个错位而生：
 <table>
 <tr>
   <td width="50%">
-    <h4>📦 供应商管理</h4>
+    <h4>📦 CCD 供应商管理</h4>
     可视化添加、编辑、删除、启用/禁用、拖拽排序模型供应商，内置主流预设模板
   </td>
   <td width="50%">
-    <h4>🔄 模型名称转发</h4>
-    内置代理（<code>:8901</code>）自动去除 <code>claude-</code> 前缀，SSE 流式响应实时透传
+    <h4>🔧 CC CLI 供应商管理</h4>
+    管理 Claude Code CLI 供应商配置，支持 API 模式切换、模型自动发现、1M 上下文
   </td>
 </tr>
 <tr>
   <td width="50%">
-    <h4>📊 代理日志 & Token 统计</h4>
-    实时查看请求日志，按日/周/月统计 Token 消耗，数据持久化存储
+    <h4>🔄 模型名称转发</h4>
+    内置代理（<code>:8901</code>）自动去除 <code>claude-</code> 前缀，SSE 流式响应实时透传
+  </td>
+  <td width="50%">
+    <h4>📊 用量图表</h4>
+    趋势折线图 + 供应商/模型占比饼图，按日/周/月统计 Token 消耗
+  </td>
+</tr>
+<tr>
+  <td width="50%">
+    <h4>🔒 代理认证 & 缓存</h4>
+    Token 认证保护真实 API Key，响应缓存减少延迟和费用
+  </td>
+  <td width="50%">
+    <h4>📥 导入/导出</h4>
+    供应商配置 JSON 导入导出，方便迁移和备份
+  </td>
+</tr>
+<tr>
+  <td width="50%">
+    <h4>📋 日志搜索 & 过滤</h4>
+    按模型、供应商、状态码筛选，关键词搜索
   </td>
   <td width="50%">
     <h4>🔒 完全本地运行</h4>
@@ -96,9 +116,14 @@ RouterClaude 就是为了解决这个错位而生：
 ├── ccd/                  # CCD 配置文件（同步写入 CCD 目录）
 │   ├── _meta.json        # 供应商注册表 + 激活状态
 │   └── {uuid}.json       # 单个供应商配置
-└── data/                 # 应用数据（持久化）
-    ├── logs.json         # 代理请求日志（最近 500 条）
-    └── usage.json        # Token 用量记录（最近 10000 条）
+├── cli/                  # Claude Code CLI 配置文件
+│   ├── _meta.json        # CLI 供应商注册表
+│   └── {uuid}.json       # 单个 CLI 供应商配置
+├── data/                 # 应用数据（持久化）
+│   ├── logs.json         # 代理请求日志（最近 500 条）
+│   └── usage.json        # Token 用量记录（最近 10000 条）
+├── settings.json         # 全局设置（重试、缓存配置）
+└── ccd-config/           # CCD settings.json（生成）
 ```
 
 <details>
@@ -233,6 +258,23 @@ cd .. && pnpm tauri build
 | `POST` | `/api/providers/{id}/test` | 测试供应商连接 |
 | `POST` | `/api/providers/reorder` | 保存供应商排序 |
 | `POST` | `/api/providers/discover` | 自动发现模型 |
+| `POST` | `/api/providers/export` | 导出供应商配置 |
+| `POST` | `/api/providers/import` | 导入供应商配置 |
+
+### Claude Code CLI API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/claude-cli` | 获取所有 CLI 供应商 |
+| `POST` | `/api/claude-cli` | 创建 CLI 供应商 |
+| `PUT` | `/api/claude-cli/{id}` | 更新 CLI 供应商 |
+| `DELETE` | `/api/claude-cli/{id}` | 删除 CLI 供应商 |
+| `PATCH` | `/api/claude-cli/{id}/toggle` | 切换启用状态 |
+| `POST` | `/api/claude-cli/{id}/test` | 测试连接 |
+| `POST` | `/api/claude-cli/reorder` | 保存排序 |
+| `POST` | `/api/claude-cli/discover` | 自动发现模型 |
+| `POST` | `/api/claude-cli/export` | 导出配置 |
+| `POST` | `/api/claude-cli/import` | 导入配置 |
 
 ### 代理 API（`:8901`）
 
@@ -260,7 +302,14 @@ cd .. && pnpm tauri build
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/update/check?currentVersion=1.0.1` | 检查 GitHub Releases 最新版本 |
+| `GET` | `/api/update/check?currentVersion=1.2.0` | 检查 GitHub Releases 最新版本 |
+
+### 设置 API（`:8900`）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/settings` | 获取全局设置 |
+| `PUT` | `/api/settings` | 更新全局设置 |
 
 ---
 
@@ -272,9 +321,12 @@ router-claude/
 │   ├── components/               # UI 组件
 │   │   ├── ProviderCard.tsx      # 供应商卡片（拖拽排序、标签、测试）
 │   │   ├── ProviderForm.tsx      # 供应商表单（预设、API模式、自动发现）
-│   │   ├── ModelEditor.tsx       # 模型列表编辑器
-│   │   ├── LogPanel.tsx          # 代理日志面板
-│   │   ├── UsagePanel.tsx        # Token 用量统计
+│   │   ├── ClaudeCliCard.tsx     # CLI 供应商卡片
+│   │   ├── ClaudeCliForm.tsx     # CLI 供应商表单（API模式、1M上下文）
+│   │   ├── ClaudeCliPanel.tsx    # CLI 供应商管理面板
+│   │   ├── SettingsPanel.tsx     # 设置面板（重试、缓存配置）
+│   │   ├── LogPanel.tsx          # 代理日志面板（搜索、过滤）
+│   │   ├── UsagePanel.tsx        # Token 用量统计（折线图、饼图）
 │   │   ├── AboutPanel.tsx        # 关于页面（版本信息、更新检查）
 │   │   └── Toast.tsx             # Toast 弹窗组件
 │   ├── hooks/                    # TanStack Query Hooks
@@ -298,6 +350,21 @@ router-claude/
 ---
 
 ## 更新日志
+
+### v1.2.0
+
+- **Claude Code CLI 支持**：管理 Claude Code CLI 供应商配置，与 CCD 配置隔离，支持 API 模式切换（OpenAI/Anthropic）、模型自动发现、1M 上下文模式
+- **代理认证**：Token 认证机制，真实 API Key 仅存 RouterClaude，CCD/CC 配置使用代理 Token
+- **代理重试**：5xx 错误或超时时自动重试，可配置重试次数和间隔
+- **响应缓存**：非流式请求基于 SHA-256 哈希缓存，可配置 TTL 和最大条目数
+- **配置导入/导出**：供应商配置 JSON 导入导出，方便迁移和备份
+- **用量图表**：趋势折线图（今日/本周/本月）+ 供应商/模型占比饼图
+- **日志搜索与过滤**：按模型、供应商、状态码筛选，关键词搜索
+- **标签颜色系统**：10 色确定性哈希分配，标签视觉区分更清晰
+- **设置面板**：代理重试和缓存配置，设置页内联导航（日志/用量/关于）
+- **拖拽排序优化**：closestCorners 碰撞检测，放置位置更准确
+- **启动速度优化**：Spring Boot 懒加载 + JMX 禁用，启动提速约 16%
+- **配置校验增强**：逐字段内联错误提示，所有校验错误同时显示
 
 ### v1.1.0
 

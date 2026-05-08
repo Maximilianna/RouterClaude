@@ -48,6 +48,14 @@ public class CcdConfigDir {
     }
 
     /**
+     * Returns the Claude CLI config directory (~/.routerclaude/claude-cli/).
+     * Used for Claude Code CLI provider configs.
+     */
+    public static Path getClaudeCliConfigPath() {
+        return getPath().resolve("claude-cli");
+    }
+
+    /**
      * Returns the CCD external config directory (%LOCALAPPDATA%/Claude-3p/configLibrary).
      * Writes are synced here.
      */

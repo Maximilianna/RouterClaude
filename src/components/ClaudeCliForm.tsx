@@ -1,47 +1,49 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Provider, ProviderConfig, ApiMode, Model } from "../types/provider";
+import type { ClaudeCliProvider, ClaudeCliConfig } from "../types/claudeCli";
+import type { ApiMode } from "../types/provider";
 import { translateBackendError } from "../utils/translateError";
 import { PROVIDER_PRESETS } from "../data/presets";
-import { useDiscoverModels } from "../hooks/useProviders";
+import { useDiscoverCliModels } from "../hooks/useClaudeCli";
 import { getTagColor } from "../utils/tagColors";
-import ModelEditor from "./ModelEditor";
 
 interface Props {
-  initial?: Provider;
-  onSave: (config: ProviderConfig) => Promise<void>;
+  initial?: ClaudeCliProvider;
+  onSave: (config: ClaudeCliConfig) => Promise<void>;
   onCancel: () => void;
   onToast?: (toast: { type: "success" | "error"; message: string; detail?: string }) => void;
 }
 
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-      <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-      </svg>
-      {message}
-    </p>
-  );
-}
+const CUSTOM_SENTINEL = "__custom__";
 
-export default function ProviderForm({ initial, onSave, onCancel, onToast }: Props) {
+export default function ClaudeCliForm({ initial, onSave, onCancel, onToast }: Props) {
   const { t } = useTranslation();
-  const discover = useDiscoverModels();
+  const discover = useDiscoverCliModels();
 
   const [name, setName] = useState(initial?.name ?? "");
-  const [apiUrl, setApiUrl] = useState(initial?.apiUrl ?? "");
-  const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
-  const [models, setModels] = useState<Model[]>(initial?.models ?? []);
-  const [apiMode, setApiMode] = useState<ApiMode>(initial?.apiMode ?? "openai");
+  const [apiMode, setApiMode] = useState<ApiMode>((initial?.apiMode as ApiMode) ?? "openai");
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
+  const [apiKey, setApiKey] = useState(initial?.authToken ?? "");
+  const [defaultModel, setDefaultModel] = useState(initial?.defaultModel ?? "");
+  const [defaultSonnetModel, setDefaultSonnetModel] = useState(initial?.defaultSonnetModel ?? "");
+  const [defaultOpusModel, setDefaultOpusModel] = useState(initial?.defaultOpusModel ?? "");
+  const [defaultHaikuModel, setDefaultHaikuModel] = useState(initial?.defaultHaikuModel ?? "");
+  const [defaultModel1m, setDefaultModel1m] = useState(initial?.defaultModel1m ?? false);
+  const [defaultSonnetModel1m, setDefaultSonnetModel1m] = useState(initial?.defaultSonnetModel1m ?? false);
+  const [defaultOpusModel1m, setDefaultOpusModel1m] = useState(initial?.defaultOpusModel1m ?? false);
+  const [defaultHaikuModel1m, setDefaultHaikuModel1m] = useState(initial?.defaultHaikuModel1m ?? false);
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<string>("");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const [showOverrides, setShowOverrides] = useState(
+    !!(initial?.defaultSonnetModel || initial?.defaultOpusModel || initial?.defaultHaikuModel)
+  );
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [customFields, setCustomFields] = useState<Record<string, boolean>>({});
 
   function handlePresetChange(presetName: string) {
     setSelectedPreset(presetName);
@@ -49,34 +51,30 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
     if (!preset) return;
     setName(preset.name);
     setApiMode(preset.defaultApiMode);
-    setApiUrl(preset.defaultApiMode === "openai" ? preset.openaiUrl : preset.anthropicUrl);
+    setBaseUrl(preset.defaultApiMode === "openai" ? preset.openaiUrl : preset.anthropicUrl);
   }
 
   function handleApiModeChange(mode: ApiMode) {
     setApiMode(mode);
     const preset = PROVIDER_PRESETS.find((p) => p.name === selectedPreset || p.name === name);
     if (preset) {
-      setApiUrl(mode === "openai" ? preset.openaiUrl : preset.anthropicUrl);
+      setBaseUrl(mode === "openai" ? preset.openaiUrl : preset.anthropicUrl);
     }
   }
 
   async function handleDiscover() {
-    if (!apiKey.trim()) return;
+    if (!baseUrl.trim() || !apiKey.trim()) return;
     const preset = PROVIDER_PRESETS.find((p) => p.name === selectedPreset || p.name === name);
-    const discoverUrl = preset ? preset.openaiUrl : apiUrl.trim();
+    const discoverUrl = preset ? preset.openaiUrl : baseUrl.trim();
     if (!discoverUrl) return;
 
     try {
       const result = await discover.mutateAsync({
-        apiUrl: discoverUrl,
-        apiKey: apiKey.trim(),
+        baseUrl: discoverUrl,
+        authToken: apiKey.trim(),
         apiMode: "openai",
       });
-      const newModels: Model[] = result.models.map((name) => ({
-        name,
-        supports1m: false,
-      }));
-      setModels(newModels);
+      setDiscoveredModels(result.models);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "DISCOVER_FAILED";
       onToast?.({
@@ -85,6 +83,19 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
         detail: translateBackendError(msg, t),
       });
     }
+  }
+
+  function handleModelSelect(current: string, setter: (v: string) => void, fieldKey: string) {
+    return (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value;
+      if (val === CUSTOM_SENTINEL) {
+        setCustomFields((prev) => ({ ...prev, [fieldKey]: true }));
+        setter(current || "");
+      } else {
+        setCustomFields((prev) => ({ ...prev, [fieldKey]: false }));
+        setter(val);
+      }
+    };
   }
 
   function addTag() {
@@ -108,16 +119,13 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
     if (!name.trim()) {
       newErrors.name = t("validation.name_required");
     }
-    if (!apiUrl.trim()) {
-      newErrors.apiUrl = t("validation.api_url_required");
-    } else if (!/^https?:\/\/.+/.test(apiUrl.trim())) {
-      newErrors.apiUrl = t("validation.api_url_invalid");
+    if (!baseUrl.trim()) {
+      newErrors.baseUrl = t("validation.base_url_required");
+    } else if (!/^https?:\/\/.+/.test(baseUrl.trim())) {
+      newErrors.baseUrl = t("validation.base_url_invalid");
     }
     if (!apiKey.trim()) {
       newErrors.apiKey = t("validation.api_key_required");
-    }
-    if (models.length === 0 || models.every((m) => !m.name.trim())) {
-      newErrors.models = t("validation.model_required");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -129,10 +137,17 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
     try {
       await onSave({
         name: name.trim(),
-        apiUrl: apiUrl.trim(),
-        apiKey: apiKey.trim(),
-        models: models.filter((m) => m.name.trim()),
+        baseUrl: baseUrl.trim(),
+        authToken: apiKey.trim(),
         apiMode,
+        defaultModel: defaultModel.trim() || undefined,
+        defaultSonnetModel: defaultSonnetModel.trim() || undefined,
+        defaultOpusModel: defaultOpusModel.trim() || undefined,
+        defaultHaikuModel: defaultHaikuModel.trim() || undefined,
+        defaultModel1m: defaultModel1m || undefined,
+        defaultSonnetModel1m: defaultSonnetModel1m || undefined,
+        defaultOpusModel1m: defaultOpusModel1m || undefined,
+        defaultHaikuModel1m: defaultHaikuModel1m || undefined,
         tags,
       });
     } catch (err) {
@@ -141,6 +156,59 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderModelField(
+    label: string,
+    value: string,
+    setter: (v: string) => void,
+    fieldKey: string,
+    is1m?: boolean,
+    onToggle1m?: (v: boolean) => void
+  ) {
+    const isCustom = customFields[fieldKey] || (value && !discoveredModels.includes(value));
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs text-gray-500">{label}</label>
+          {onToggle1m && (
+            <button
+              type="button"
+              onClick={() => onToggle1m(!is1m)}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                is1m
+                  ? "bg-blue-100 text-blue-600 border border-blue-200"
+                  : "bg-gray-50 text-gray-400 border border-gray-200 hover:text-gray-500"
+              }`}
+            >
+              1M
+            </button>
+          )}
+        </div>
+        <select
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none bg-white"
+          value={isCustom ? CUSTOM_SENTINEL : value || ""}
+          onChange={handleModelSelect(value, setter, fieldKey)}
+        >
+          <option value="">—</option>
+          {discoveredModels.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+          {value && !discoveredModels.includes(value) && (
+            <option value={value}>{value}</option>
+          )}
+          <option value={CUSTOM_SENTINEL}>{t("cli.model_custom")}</option>
+        </select>
+        {isCustom && (
+          <input
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mt-1.5 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none"
+            value={value}
+            onChange={(e) => setter(e.target.value)}
+            placeholder={t("cli.default_model_placeholder")}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -167,7 +235,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("provider.name")}
+          {t("cli.name")}
         </label>
         <input
           className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-2 transition-all duration-200 outline-none ${
@@ -175,16 +243,23 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
               ? "border-red-300 focus:border-red-400 focus:ring-red-100"
               : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
           }`}
-          placeholder={t("provider.name_placeholder")}
+          placeholder={t("cli.name_placeholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <FieldError message={errors.name} />
+        {errors.name && (
+          <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+            <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.name}
+          </p>
+        )}
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("provider.api_mode")}
+          {t("cli.api_mode")}
         </label>
         <div className="flex gap-3">
           {(["openai", "anthropic"] as ApiMode[]).map((mode) => (
@@ -206,24 +281,31 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("provider.api_url")}
+          {t("cli.base_url")}
         </label>
         <input
           className={`w-full border rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 transition-all duration-200 outline-none ${
-            errors.apiUrl
+            errors.baseUrl
               ? "border-red-300 focus:border-red-400 focus:ring-red-100"
               : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
           }`}
-          placeholder={t("provider.api_url_placeholder")}
-          value={apiUrl}
-          onChange={(e) => setApiUrl(e.target.value)}
+          placeholder={t("cli.base_url_placeholder")}
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
         />
-        <FieldError message={errors.apiUrl} />
+        {errors.baseUrl && (
+          <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+            <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.baseUrl}
+          </p>
+        )}
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("provider.api_key")}
+          {t("cli.api_key")}
         </label>
         <div className="relative">
           <input
@@ -233,7 +315,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
                 : "border-gray-200 focus:border-blue-400 focus:ring-blue-100"
             }`}
             type={showApiKey ? "text" : "password"}
-            placeholder={t("provider.api_key_placeholder")}
+            placeholder={t("cli.api_key_placeholder")}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
@@ -254,30 +336,90 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
             )}
           </button>
         </div>
-        <FieldError message={errors.apiKey} />
+        {errors.apiKey && (
+          <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+            <svg className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {errors.apiKey}
+          </p>
+        )}
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-gray-700">
-            {t("provider.models")}
+            {t("cli.default_model")}
           </label>
           <button
             type="button"
             onClick={handleDiscover}
-            disabled={discover.isPending || !apiUrl.trim() || !apiKey.trim()}
+            disabled={discover.isPending || !baseUrl.trim() || !apiKey.trim()}
             className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {discover.isPending ? t("provider.discovering") : t("provider.discover")}
+            {discover.isPending ? t("cli.discovering") : t("cli.discover")}
           </button>
         </div>
-        <ModelEditor models={models} onChange={setModels} />
-        <FieldError message={errors.models} />
+        {renderModelField(
+          t("cli.default_model"),
+          defaultModel,
+          setDefaultModel,
+          "defaultModel",
+          defaultModel1m,
+          setDefaultModel1m
+        )}
+      </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowOverrides(!showOverrides)}
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+        >
+          <svg
+            className={`h-4 w-4 transition-transform duration-200 ${showOverrides ? "rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          {t("cli.model_overrides")}
+        </button>
+        {showOverrides && (
+          <div className="mt-3 space-y-3 pl-5">
+            {renderModelField(
+              t("cli.default_sonnet"),
+              defaultSonnetModel,
+              setDefaultSonnetModel,
+              "sonnet",
+              defaultSonnetModel1m,
+              setDefaultSonnetModel1m
+            )}
+            {renderModelField(
+              t("cli.default_opus"),
+              defaultOpusModel,
+              setDefaultOpusModel,
+              "opus",
+              defaultOpusModel1m,
+              setDefaultOpusModel1m
+            )}
+            {renderModelField(
+              t("cli.default_haiku"),
+              defaultHaikuModel,
+              setDefaultHaikuModel,
+              "haiku",
+              defaultHaikuModel1m,
+              setDefaultHaikuModel1m
+            )}
+          </div>
+        )}
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("provider.tags")}
+          {t("cli.tags")}
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
           {tags.map((tag) => {
@@ -304,7 +446,7 @@ export default function ProviderForm({ initial, onSave, onCancel, onToast }: Pro
         <div className="flex gap-2">
           <input
             className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all duration-200 outline-none"
-            placeholder={t("provider.add_tag")}
+            placeholder={t("cli.add_tag")}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => {

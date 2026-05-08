@@ -11,6 +11,7 @@ public class Provider {
     private boolean enabled;
     private String apiMode;
     private List<String> tags;
+    private String proxyToken;
 
     public Provider() {}
 
@@ -30,4 +31,6 @@ public class Provider {
     public void setApiMode(String apiMode) { this.apiMode = apiMode; }
     public List<String> getTags() { return tags; }
     public void setTags(List<String> tags) { this.tags = tags; }
+    public String getProxyToken() { return proxyToken; }
+    public void setProxyToken(String proxyToken) { this.proxyToken = proxyToken; }
 }

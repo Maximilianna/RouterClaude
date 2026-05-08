@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { API_BASE } from "../config";
 
-const CURRENT_VERSION = "1.1.0";
+const CURRENT_VERSION = "1.2.0";
 
 interface UpdateInfo {
   latestVersion: string | null;
