@@ -35,7 +35,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../backend/target/routerclaude-backend-1.2.0.jar"
+      "../backend/target/routerclaude-backend-1.3.0.jar"
     ],
     "windows": {
       "wix": null
